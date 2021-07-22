@@ -1,0 +1,30 @@
+{
+  "name": "monomove",
+  "version": "1.0.0",
+  "description": "utilities for moving things on screen",
+  "main": "dist/monomove.js",
+  "module": "src/index.js",
+  "browserslist": [
+    "> 1%",
+    "last 2 versions"
+  ],
+  "scripts": {
+    "build": "webpack --mode development --progress",
+    "build:production": "webpack --mode production --progress"
+  },
+  "keywords": [
+    "move",
+    "tween",
+    "scroll"
+  ],
+  "author": "Monokai",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.14.8",
+    "@babel/preset-env": "^7.14.8",
+    "babel-loader": "^8.2.2",
+    "core-js": "^3.15.2",
+    "webpack": "^5.46.0",
+    "webpack-cli": "^4.7.2"
+  }
+}

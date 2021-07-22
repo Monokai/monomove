@@ -1,0 +1,47 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>monomove - tween example</title>
+		<script src="../dist/monomove.js"></script>
+	</head>
+	<style>
+		.block {
+			background-color: #000;
+			width: 8rem;
+			height: 8rem;
+		}
+	</style>
+	<body>
+		<div class="block"></div>
+		<script>
+			const {delay, Tween} = window.monomove;
+
+			const block = document.getElementsByClassName('block')[0];
+
+			(async () => {
+				await new Tween(({value}) => {
+					block.style.transform = `translate3d(${value * 400}px, 0, 0)`;
+				}, 4)
+					.easing('0.35, 0.15, 0.65, 1')
+					.onComplete(() => {
+						console.log('first tween complete');
+					})
+					.start();
+
+				console.log('start delay');
+
+				await delay(2);
+
+				console.log('delay done');
+
+				await new Tween(({value}) => {
+					block.style.transform = `translate3d(${(1 - value) * 400}px, 0, 0)`;
+				}, 4)
+					.easing('0.35, 0.15, 0.65, 1')
+					.start();
+
+				console.log('done')
+			})();
+		</script>
+	</body>
+</html>

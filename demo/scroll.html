@@ -1,0 +1,56 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>monomove - scroll example</title>
+		<script src="../dist/monomove.js"></script>
+	</head>
+	<style>
+		button {
+			margin-bottom: 8rem;
+		}
+		.block {
+			background-color: #000;
+			width: 32rem;
+			height: 32rem;
+			margin-bottom: 8rem;
+			border: 10px solid #000;
+			transition: border-color 1s;
+		}
+
+		.is-in-view {
+			border-color: #00f;
+		}
+	</style>
+	<body>
+		<button class="scroll">scroll</button>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<div class="block"></div>
+		<script>
+			const {SmoothScroller} = window.monomove;
+
+			const smoothScroller = new SmoothScroller({
+				debug: true
+			});
+
+			smoothScroller.add([...document.getElementsByClassName('block')], ({item, factor, boxFactor, boxIsInView}) => {
+				const x = Math.sin(factor * Math.PI) * 100;
+				const y = (1 - boxFactor) * 100;
+				const opacity = 1 - ((factor - 0.5) * 2) ** 4;
+
+				item.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+				item.style.opacity = opacity;
+				item.classList.toggle('is-in-view', boxIsInView);
+			});
+
+			document.getElementsByClassName('scroll')[0].onclick = () => {
+				smoothScroller.scrollTo(window.document.body.scrollHeight - smoothScroller.height);
+			}
+		</script>
+	</body>
+</html>
