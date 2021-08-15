@@ -1,6 +1,6 @@
-import BezierEasing from 'math/BezierEasing';
-import RenderLoop from 'move/RenderLoop';
-import TweenManager from 'move/TweenManager';
+import BezierEasing from '../math/BezierEasing';
+import RenderLoop from './RenderLoop';
+import TweenManager from './TweenManager';
 
 export default class {
 

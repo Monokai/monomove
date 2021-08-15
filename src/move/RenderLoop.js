@@ -1,5 +1,5 @@
-import 'move/RAF';
-import TweenManager from 'move/TweenManager';
+import './RAF';
+import TweenManager from './TweenManager';
 
 export default new class {
 
