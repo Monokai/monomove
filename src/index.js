@@ -4,8 +4,10 @@
 */
 
 import MMTween from './move/Tween';
+import MMSmoothScroller from './move/SmoothScroller';
+import MMRenderLoop from './move/RenderLoop';
 
-export const delay = async x => await new Tween(() => true, x).start();
+export const delay = async x => await new MMTween(() => true, x).start();
 export const Tween = MMTween;
-export const SmoothScroller = require('./move/SmoothScroller').default;
-export const RenderLoop = require('./move/RenderLoop').default;
+export const SmoothScroller = MMSmoothScroller;
+export const RenderLoop = MMRenderLoop;
