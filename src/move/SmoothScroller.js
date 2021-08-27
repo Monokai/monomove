@@ -442,18 +442,14 @@ export default class {
 		a.animationObject.scroll = a.animationObject.targetScroll = this.targetScroll;
 	}
 
-	scrollTo(position = 0, offset = 0, time = null) {
-		let box = {
-			top: position
-		};
-
+	scrollTo(position = 0, time = null) {
 		return this.scrollTween
 			.from({
 				y: this.scroll
 			})
 			.to({
-				y: box.top + offset
-			}, time ? time : clamp(Math.abs(box.top - this.scroll) * 0.00025, 0.25, 2.5))
+				y: position
+			}, time ? time : clamp(Math.abs(position - this.scroll) * 0.00025, 0.25, 2.5))
 			.start();
 	}
 
