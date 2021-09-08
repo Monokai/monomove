@@ -15,7 +15,7 @@ try {
 	window.addEventListener('a', null, options);
 	window.removeEventListener('a', null, options);
 } catch (e) {
-	console.log('passive listeners not supported');
+	// console.log('passive listeners not supported');
 }
 
 export default class {

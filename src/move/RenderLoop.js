@@ -65,7 +65,7 @@ export default new class {
 			if (this.isAnimating && (this.dirtyCallbacks > 0 || hasTweens)) {
 				this.requestID = window.requestAnimationFrame(animationLoop);
 			} else {
-				console.log('stop rendering', this.isAnimating, this.dirtyCallbacks, hasTweens);
+				// console.log('stop rendering', this.isAnimating, this.dirtyCallbacks, hasTweens);
 				this.requestAnimation = false;
 			}
 
