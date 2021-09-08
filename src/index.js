@@ -12,4 +12,4 @@ export {default as RenderLoop} from './move/RenderLoop';
 
 export const Tween = MMTween;
 
-export const delay = async x => await new Tween(() => true, x).start();
+export const delay = async x => await new MMTween(() => true, x).start();
