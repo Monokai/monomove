@@ -5,8 +5,6 @@ export default class Timeline {
 	constructor(tweens) {
 		this.tweens = tweens.slice().sort((a, b) => a.delayTime - b.delayTime);
 		this.totalTime = tweens.reduce((total, tween) => Math.max(total, tween.delayTime + tween._duration), 0);
-
-		console.log(this.tweens);
 	}
 
 	setPosition(position) {
