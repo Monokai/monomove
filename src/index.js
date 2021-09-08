@@ -3,10 +3,10 @@
 	Utilities for moving things on screen
 */
 
-export const Tween from './move/Tween';
-export const TweenManager from './move/TweenManager';
-export const Timeline from './move/Timeline';
-export const SmoothScroller from './move/SmoothScroller';
-export const RenderLoop from './move/RenderLoop';
+export {default as Tween} from './move/Tween';
+export {default as TweenManager} from './move/TweenManager';
+export {default as Timeline} from './move/Timeline';
+export {default as SmoothScroller} from './move/SmoothScroller';
+export {default as RenderLoop} from './move/RenderLoop';
 
 export const delay = async x => await new Tween(() => true, x).start();
