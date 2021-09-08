@@ -84,19 +84,46 @@ import {Timeline} from 'monomove';
 
 ### Using it
 
-Create a timeline of tweens and jump to a specific normalized position (between 0 and 1, inclusive):
+A timeline is a collection of parallel playing tweens that you can control with a normalized position (between 0 and 1, inclusive).
+
+Create a timeline of two tweens and jump to 50% of the timeline:
 
 ```js
 const timeline = new Timeline([
 	new Tween(({value}) => {
 		element.style.opacity = value * 0.5;
-	}, 1),
+	}, 2),
 	new Tween(({value}) => {
 		element.style.left = `${value * 100}px`;
-	}, 2)
+	}, 1).delay(0.5)
 ])
 
 timeline.setPosition(0.5);
+```
+
+
+
+```js
+import {TweenChain} from 'monomove';
+```
+
+### Using it
+
+A tween chain is a collection of tweens that play after each other. You can control the chain by setting a normalized position (between 0 and 1, inclusive).
+
+Create a chain of two tweens and jump to 50% of the timeline:
+
+```js
+const tweenChain = new TweenChain([
+	new Tween(({value}) => {
+		element.style.opacity = value * 0.5;
+	}, 2),
+	new Tween(({value}) => {
+		element.style.left = `${value * 100}px`;
+	}, 1).delay(0.5)
+])
+
+tweenChain.setPosition(0.5);
 ```
 
 

@@ -6,6 +6,7 @@
 import MMTween from './move/Tween';
 
 export {default as TweenManager} from './move/TweenManager';
+export {default as TweenChain} from './move/TweenChain';
 export {default as Timeline} from './move/Timeline';
 export {default as SmoothScroller} from './move/SmoothScroller';
 export {default as RenderLoop} from './move/RenderLoop';
