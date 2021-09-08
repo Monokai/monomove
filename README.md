@@ -37,7 +37,7 @@ Simple animation, tweening the opacity:
 const element = document.getElementById('my-id');
 const duration = 0.2 // seconds
 
-await new Tween({value} => {
+await new Tween(({value}) => {
 	element.style.opacity = value;
 }, duration)
 	.start();
@@ -46,7 +46,7 @@ await new Tween({value} => {
 Tweening position with easing:
 
 ```js
-await new Tween({value} => {
+await new Tween(({value}) => {
 	element.style.left = `${value * 100}px`;
 }, duration)
 	.easing('0.25, 0.25, 0, 1') // css style easing
@@ -68,6 +68,35 @@ await new Tween({
 		element.style.transform = `translate3d(${x * 100}px, ${y * 100}px, 0)`;
 	})
 	.start();
+```
+
+
+
+## Timeline
+
+Chaining tweens together and get a single timeline
+
+### Importing it:
+
+```js
+import {Timeline} from 'monomove';
+```
+
+### Using it
+
+Create a timeline of tweens and jump to a specific normalized position (between 0 and 1, inclusive):
+
+```js
+const timeline = new Timeline([
+	new Tween(({value}) => {
+		element.style.opacity = value * 0.5;
+	}, 1),
+	new Tween(({value}) => {
+		element.style.left = `${value * 100}px`;
+	}, 2)
+])
+
+timeline.setPosition(0.5);
 ```
 
 

@@ -36,6 +36,7 @@ export default class {
 		this.value                = 0;
 		this.elapsed              = 0;
 		this.valuesStart          = {};
+		this.previousUpdateValue  = null;
 		this.easingFunction       = k => k;
 
 		Object.keys(this.object).forEach(key => {
@@ -211,16 +212,23 @@ export default class {
 		return this;
 	}
 
-	updateAll(delta) {
+	updateAll(delta = 0) {
+		if (this.value === this.previousUpdateValue) {
+			return;
+		}
+
 		Object.entries(this.valuesEnd).forEach(this.updateValue, this);
 
 		if (this.onUpdateCallback !== null) {
 			this.onUpdateCallback(this.object, this.value, delta);
 		}
+
+		this.previousUpdateValue = this.value;
 	}
 
 	updateValue([key, value]) {
 		const start = this.valuesStart[key];
+
 		this.object[key] = start + (value - start) * this.value;
 	}
 
@@ -241,7 +249,7 @@ export default class {
 		const normalizedElapsed = this._duration === 0 ? 1 : Math.min(this.elapsed / this._duration, 1);
 		this.value = this.easingFunction(normalizedElapsed);
 
-		if (!this.previousTime) {
+		if (this.previousTime === null) {
 			this.previousTime = time;
 		}
 
