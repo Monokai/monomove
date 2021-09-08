@@ -1,4 +1,4 @@
-import clamp from 'math/clamp';
+import clamp from '../math/clamp';
 
 export default class Timeline {
 
