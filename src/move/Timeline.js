@@ -27,7 +27,7 @@ export default class Timeline extends AbstractTimeline {
 				// 	this.setTweenStart(tween, false);
 				// }
 
-				tween.updateAll();
+				tween.updateAllValues();
 			} else {
 				break;
 			}
@@ -60,7 +60,7 @@ export default class Timeline extends AbstractTimeline {
 				break;
 			}
 
-			tween.updateAll();
+			tween.updateAllValues();
 		}
 
 		this.previousPosition = position;

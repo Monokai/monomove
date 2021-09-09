@@ -30,7 +30,7 @@ export default class TweenChain extends AbstractTimeline {
 
 				this.setTweenVisibility(tween, false);
 
-				tween.updateAll();
+				tween.updateAllValues();
 			} else {
 				break;
 			}
@@ -59,7 +59,7 @@ export default class TweenChain extends AbstractTimeline {
 				break;
 			}
 
-			tween.updateAll();
+			tween.updateAllValues();
 		}
 	}
 
