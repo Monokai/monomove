@@ -21,9 +21,10 @@ export default class TweenChain extends AbstractTimeline {
 
 			const tweenDuration = tween._duration;
 			const tweenTime = tween.delayTime + tweenDuration;
-			const tweenStartTime = t + tween.delayTime;
 
 			t -= tweenTime;
+
+			const tweenStartTime = t + tween.delayTime;
 
 			if (tweenStartTime > time) {
 				tween.value = 0;
