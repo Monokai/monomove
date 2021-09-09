@@ -23,21 +23,25 @@ export default class {
 			this.onUpdateCallback = null;
 		}
 
-		this.loopNum              = 0;
-		this.loopCount            = 0;
-		this.delayTime            = 0;
-		this.isPlaying            = false;
-		this.onLoopCallback       = null;
-		this.onCompleteCallback   = null;
-		this.onStartCallback      = null;
-		this.onStartCallbackFired = false;
-		this.previousTime         = null;
-		this.startTime            = null;
-		this.value                = 0;
-		this.elapsed              = 0;
-		this.valuesStart          = {};
-		this.previousUpdateValue  = null;
-		this.easingFunction       = k => k;
+		this.loopNum                     = 0;
+		this.loopCount                   = 0;
+		this.delayTime                   = 0;
+		this.isPlaying                   = false;
+		this.onLoopCallback              = null;
+		this.onCompleteCallback          = null;
+		this.onStartCallback             = null;
+		this.onStartCallbackFired        = false;
+		// this.onTimelineStartCallback     = null;
+		// this.onTimelineCompleteCallback  = null;
+		this.onTimelineVisibleCallback   = null;
+		this.onTimelineInvisibleCallback = null;
+		this.previousTime                = null;
+		this.startTime                   = null;
+		this.value                       = 0;
+		this.elapsed                     = 0;
+		this.valuesStart                 = {};
+		this.previousUpdateValue         = null;
+		this.easingFunction              = k => k;
 
 		Object.keys(this.object).forEach(key => {
 			this.valuesStart[key] = this.object[key];
@@ -53,9 +57,9 @@ export default class {
 		});
 	}
 
-	static getTime() {
-		return RenderLoop.getTime();
-	}
+	// static getTime() {
+	// 	return RenderLoop.getTime();
+	// }
 
 	from(properties) {
 		Object.keys(properties).forEach(key => {
@@ -212,7 +216,31 @@ export default class {
 		return this;
 	}
 
-	updateAll(delta = 0) {
+// 	onTimelineStart(callback) {
+// 		this.onTimelineStartCallback = callback;
+// 
+// 		return this;
+// 	}
+// 
+// 	onTimelineComplete(callback) {
+// 		this.onTimelineCompleteCallback = callback;
+// 
+// 		return this;
+// 	}
+
+	onTimelineVisible(callback) {
+		this.onTimelineVisibleCallback = callback;
+
+		return this;
+	}
+
+	onTimelineInvisible(callback) {
+		this.onTimelineInvisibleCallback = callback;
+
+		return this;
+	}
+
+	updateAllValues(delta = 0) {
 		if (this.value === this.previousUpdateValue) {
 			return;
 		}
@@ -257,7 +285,7 @@ export default class {
 
 		this.previousTime = time;
 
-		this.updateAll(delta);
+		this.updateAllValues(delta);
 
 		if (normalizedElapsed === 1) {
 			const tempStartTime = this.startTime;

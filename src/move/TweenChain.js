@@ -1,8 +1,11 @@
+import AbstractTimeline from './AbstractTimeline';
 import clamp from '../math/clamp';
 
-export default class Timeline {
+export default class TweenChain extends AbstractTimeline {
 
 	constructor(tweens) {
+		super();
+
 		this.tweens = tweens;
 		this.totalTime = tweens.reduce((total, tween) => total + tween.delayTime + tween._duration, 0);
 	}
@@ -24,6 +27,9 @@ export default class Timeline {
 
 			if (tweenStartTime > time) {
 				tween.value = 0;
+
+				this.setTweenVisibility(tween, false);
+
 				tween.updateAll();
 			} else {
 				break;
@@ -39,12 +45,16 @@ export default class Timeline {
 
 			t += tweenTime;
 
-			if (t < time) {
+			if (t <= time) {
 				tween.value = 1;
+
+				this.setTweenVisibility(tween, true);
 			} else if (tweenStartTime <= time) {
 				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
 				tween.value = tween.easingFunction(normalized);
+
+				this.setTweenVisibility(tween, true);
 			} else {
 				break;
 			}
