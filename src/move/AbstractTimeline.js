@@ -1,7 +1,10 @@
 export default class AbstractTimeline {
 
-	constructor() {
+	constructor({
+		delay = 0
+	} = {}) {
 		this.previousPosition = 0;
+		this.delay = delay;
 	}
 
 	setTweenIn(tween, isIn) {

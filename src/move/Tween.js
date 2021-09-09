@@ -254,6 +254,12 @@ export default class {
 		this.previousUpdateValue = this.value;
 	}
 
+	invalidate() {
+		this.previousUpdateValue = null;
+
+		return this;
+	}
+
 	updateValue([key, value]) {
 		const start = this.valuesStart[key];
 

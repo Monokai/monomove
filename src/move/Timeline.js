@@ -3,16 +3,32 @@ import clamp from '../math/clamp';
 
 export default class Timeline extends AbstractTimeline {
 
-	constructor(tweens) {
-		super();
+	constructor(tweens, options) {
+		super(options);
 
-		this.tweens = tweens.slice().sort((a, b) => a.delayTime - b.delayTime);
-		this.totalTime = tweens.reduce((total, tween) => Math.max(total, tween.delayTime + tween._duration), 0);
+		this.tweens = tweens.reduce((a, o) => this.addTween(a, o, this.delay), []).sort((a, b) => a.delayTime - b.delayTime);
+		this.totalTime = this.tweens.reduce((total, tween) => Math.max(total, tween.delayTime + tween._duration), 0);
+	}
+
+	addTween(a, o, delay = 0) {
+		if (o instanceof this.constructor) {
+			for (const b of o.tweens) {
+				this.addTween(a, b, delay + o.delay);
+			}
+		} else {
+			if (delay) {
+				o.delayTime += delay * 1000;
+			}
+
+			a.push(o);
+		}
+
+		return a;
 	}
 
 	setPosition(position) {
 		const time = clamp(position, 0, 1) * this.totalTime;
-		const isForward = position >= this.previousPosition;
+		// const isForward = position >= this.previousPosition;
 
 		// reset all tweens that start later than position
 		for (let i = this.tweens.length - 1; i >= 0; i--) {
@@ -24,6 +40,7 @@ export default class Timeline extends AbstractTimeline {
 				this.setTweenVisibility(tween, false);
 				this.setTweenIn(tween, false);
 
+				tween.invalidate();
 				tween.updateAllValues();
 			} else {
 				break;
@@ -51,6 +68,7 @@ export default class Timeline extends AbstractTimeline {
 				break;
 			}
 
+			tween.invalidate();
 			tween.updateAllValues();
 		}
 
