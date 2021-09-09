@@ -31,8 +31,8 @@ export default class {
 		this.onCompleteCallback          = null;
 		this.onStartCallback             = null;
 		this.onStartCallbackFired        = false;
-		// this.onTimelineStartCallback     = null;
-		// this.onTimelineCompleteCallback  = null;
+		this.onTimelineInCallback        = null;
+		this.onTimelineOutCallback       = null;
 		this.onTimelineVisibleCallback   = null;
 		this.onTimelineInvisibleCallback = null;
 		this.previousTime                = null;
@@ -48,14 +48,14 @@ export default class {
 		});
 	}
 
-	static async delay(time) {
-		return new Promise(resolve => {
-			new this()
-				.duration(time)
-				.onComplete(resolve)
-				.start();
-		});
-	}
+	// static async delay(time) {
+	// 	return new Promise(resolve => {
+	// 		new this()
+	// 			.duration(time)
+	// 			.onComplete(resolve)
+	// 			.start();
+	// 	});
+	// }
 
 	// static getTime() {
 	// 	return RenderLoop.getTime();
@@ -216,17 +216,17 @@ export default class {
 		return this;
 	}
 
-// 	onTimelineStart(callback) {
-// 		this.onTimelineStartCallback = callback;
-// 
-// 		return this;
-// 	}
-// 
-// 	onTimelineComplete(callback) {
-// 		this.onTimelineCompleteCallback = callback;
-// 
-// 		return this;
-// 	}
+	onTimelineIn(callback) {
+		this.onTimelineInCallback = callback;
+
+		return this;
+	}
+
+	onTimelineOut(callback) {
+		this.onTimelineOutCallback = callback;
+
+		return this;
+	}
 
 	onTimelineVisible(callback) {
 		this.onTimelineVisibleCallback = callback;

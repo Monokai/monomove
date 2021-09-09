@@ -22,10 +22,7 @@ export default class Timeline extends AbstractTimeline {
 				tween.value = 0;
 
 				this.setTweenVisibility(tween, false);
-
-				// if (isForward) {
-				// 	this.setTweenStart(tween, false);
-				// }
+				this.setTweenIn(tween, false);
 
 				tween.updateAllValues();
 			} else {
@@ -42,20 +39,14 @@ export default class Timeline extends AbstractTimeline {
 				tween.value = 1;
 
 				this.setTweenVisibility(tween, true);
-
-				// if (isForward) {
-				// 	this.setTweenStart(tween, false);
-				// }
+				this.setTweenIn(tween, false);
 			} else if (tweenStartTime <= time) {
 				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
 				tween.value = tween.easingFunction(normalized);
 
 				this.setTweenVisibility(tween, true);
-
-				// if (isForward) {
-				// 	this.setTweenStart(tween, true);
-				// }
+				this.setTweenIn(tween, true);
 			} else {
 				break;
 			}

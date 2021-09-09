@@ -29,6 +29,7 @@ export default class TweenChain extends AbstractTimeline {
 				tween.value = 0;
 
 				this.setTweenVisibility(tween, false);
+				this.setTweenIn(tween, false);
 
 				tween.updateAllValues();
 			} else {
@@ -49,12 +50,14 @@ export default class TweenChain extends AbstractTimeline {
 				tween.value = 1;
 
 				this.setTweenVisibility(tween, true);
+				this.setTweenIn(tween, false);
 			} else if (tweenStartTime <= time) {
 				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
 				tween.value = tween.easingFunction(normalized);
 
 				this.setTweenVisibility(tween, true);
+				this.setTweenIn(tween, true);
 			} else {
 				break;
 			}
