@@ -74,7 +74,7 @@ await new Tween({
 
 ## Timeline
 
-Chaining tweens together and get a single timeline
+Adding tweens together and create a single timeline
 
 ### Importing it:
 
@@ -190,7 +190,7 @@ import {delay} from 'monomove';
 
 A simple utility to wait a bit without relying on `setTimeout`;
 
-### Wait for a 3 seconds
+### Wait for 3 seconds
 
 ```js
 await delay(3);

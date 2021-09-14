@@ -87,6 +87,10 @@ export default class TweenChain extends AbstractTimeline {
 		}
 	}
 
+	update() {
+		this.setPosition(this.previousPosition || 0);
+	}
+
 	async start() {
 		for (const tween of this.tweens) {
 			await tween.start();

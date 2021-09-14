@@ -75,6 +75,9 @@ export default class Timeline extends AbstractTimeline {
 		this.previousPosition = position;
 	}
 
+	update() {
+		this.setPosition(this.previousPosition || 0);
+	}
 
 	async start() {
 		await Promise.all(this.tweens.map(tween => tween.start()));
