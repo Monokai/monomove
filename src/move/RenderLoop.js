@@ -120,6 +120,8 @@ export default new class {
 	}
 
 	trigger() {
+		this.onlyHasDelayedTweens = false;
+
 		if (this.requestAnimation) {
 			return;
 		}
