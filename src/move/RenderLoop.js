@@ -17,6 +17,7 @@ export default new class {
 		this.requestAnimation = true;
 		this.requestID = 0;
 		this.time = 0;
+		this.onlyHasDelayedTweens = false;
 
 		if (window.performance) {
 			this.performance = window.performance;
@@ -55,11 +56,10 @@ export default new class {
 			this.ms = this.previousTime ? this.time - this.previousTime : 0;
 
 			const hasTweens = TweenManager.onTick(this.time);
-			const onlyHasDelayedTweens = TweenManager.onlyHasDelayedTweens(this.time);
 
 			this.dirtyCallbacks = 0;
 
-			if (this.isAnimating && !onlyHasDelayedTweens) {
+			if (this.isAnimating && !this.onlyHasDelayedTweens) {
 				this.callbacks.forEach(this.tick, this);
 			}
 
@@ -70,9 +70,11 @@ export default new class {
 				this.requestAnimation = false;
 			}
 
-			if (!onlyHasDelayedTweens) {
+			if (!this.onlyHasDelayedTweens) {
 				this.cleanUps.forEach(this.cleanUpFunk, this);
 			}
+
+			this.onlyHasDelayedTweens = this.dirtyCallbacks === 0 && TweenManager.onlyHasDelayedTweens(this.time);
 
 			this.previousTime = this.time;
 		};
