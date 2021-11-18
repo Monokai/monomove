@@ -55,10 +55,11 @@ export default new class {
 			this.ms = this.previousTime ? this.time - this.previousTime : 0;
 
 			const hasTweens = TweenManager.onTick(this.time);
+			const onlyHasDelayedTweens = TweenManager.onlyHasDelayedTweens(this.time);
 
 			this.dirtyCallbacks = 0;
 
-			if (this.isAnimating) {
+			if (this.isAnimating && !onlyHasDelayedTweens) {
 				this.callbacks.forEach(this.tick, this);
 			}
 
@@ -69,7 +70,9 @@ export default new class {
 				this.requestAnimation = false;
 			}
 
-			this.cleanUps.forEach(this.cleanUpFunk, this);
+			if (!onlyHasDelayedTweens) {
+				this.cleanUps.forEach(this.cleanUpFunk, this);
+			}
 
 			this.previousTime = this.time;
 		};

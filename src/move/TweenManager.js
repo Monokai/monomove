@@ -42,12 +42,12 @@ export default new class {
 		}
 	}
 
+	onlyHasDelayedTweens(time) {
+		return this.tweens.length > 0 && this.tweens.every(t => time < t.startTime);
+	}
+
 	onTick(time) {
 		if (this.tweens.length === 0) {
-			return false;
-		}
-
-		if (this.tweens.every(t => time < t.startTime)) {
 			return false;
 		}
 

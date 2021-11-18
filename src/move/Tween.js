@@ -137,8 +137,6 @@ export default class {
 			if (!wasPlaying) {
 				TweenManager.add(this);
 			}
-
-			// RenderLoop.trigger();
 		}
 
 		return this;
@@ -275,8 +273,8 @@ export default class {
 			if (this.onStartCallback !== null) {
 				this.onStartCallback(this.object);
 			}
-			this.onStartCallbackFired = true;
 
+			this.onStartCallbackFired = true;
 			RenderLoop.trigger();
 		}
 
