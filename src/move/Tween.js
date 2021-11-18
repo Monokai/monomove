@@ -138,7 +138,7 @@ export default class {
 				TweenManager.add(this);
 			}
 
-			RenderLoop.trigger();
+			// RenderLoop.trigger();
 		}
 
 		return this;
@@ -276,6 +276,8 @@ export default class {
 				this.onStartCallback(this.object);
 			}
 			this.onStartCallbackFired = true;
+
+			RenderLoop.trigger();
 		}
 
 		this.elapsed = time - this.startTime;

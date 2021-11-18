@@ -47,6 +47,10 @@ export default new class {
 			return false;
 		}
 
+		if (this.tweens.every(t => time < t.startTime)) {
+			return false;
+		}
+
 		this.time = time;
 
 		this.deadTweens.length = 0;
