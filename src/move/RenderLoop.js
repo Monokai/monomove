@@ -1,7 +1,7 @@
 import './RAF';
 import TweenManager from './TweenManager';
 
-export default new class {
+export default new class RenderLoop {
 
 	constructor() {
 		this.callbacks = [];
@@ -26,7 +26,7 @@ export default new class {
 		if (!this.performance.now) {
 			const offset = this.performance.timing && this.performance.timing.navigationStart ? this.performance.timing.navigationStart : Date.now();
 
-			this.performance.now = function() {
+			this.performance.now = function now() {
 				return Date.now() - offset;
 			};
 		}
@@ -44,7 +44,7 @@ export default new class {
 		}
 	}
 
-	cleanUpFunk(callback) {
+	static cleanUpFunk(callback) {
 		if (callback.isPlaying) {
 			callback.cleanUp.call(callback.context);
 		}
@@ -71,7 +71,7 @@ export default new class {
 			}
 
 			if (!this.onlyHasDelayedTweens) {
-				this.cleanUps.forEach(this.cleanUpFunk, this);
+				this.cleanUps.forEach(RenderLoop.cleanUpFunk, this);
 			}
 
 			this.onlyHasDelayedTweens = this.dirtyCallbacks === 0 && TweenManager.onlyHasDelayedTweens(this.time);

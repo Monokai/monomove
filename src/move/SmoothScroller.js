@@ -12,13 +12,14 @@ try {
 			return true;
 		}
 	});
+
 	window.addEventListener('a', null, options);
 	window.removeEventListener('a', null, options);
 } catch (e) {
 	// console.log('passive listeners not supported');
 }
 
-export default class {
+export default class SmoothScroller {
 
 	constructor({
 		container = window.document.body,
@@ -64,9 +65,9 @@ export default class {
 			})
 			.onComplete(() => {
 				this.isScrollingToAnchor = false;
-			})
-		this.passive = supportsPassiveListeners ? {passive: true} : false
+			});
 
+		this.passive = supportsPassiveListeners ? {passive: true} : false;
 		this.scrollFactor = scrollFactor;
 		this.container = container;
 		this.content = content;
@@ -101,12 +102,13 @@ export default class {
 			}
 
 			this.isScrollingToAnchor = false;
-		}
+		};
 
 		if (this.listener) {
 			if (this.debug) {
 				console.log('add scroll listeners');
 			}
+
 			this.listener.addEventListener('touchstart', this.touchStartListener, this.passive);
 			this.listener.addEventListener('scroll', this.scrollListener, this.passive);
 			this.listener.addEventListener('wheel', this.wheelListener, this.passive);
@@ -159,6 +161,7 @@ export default class {
 			}
 
 			const tempIsDown = this.isDown;
+
 			this.isDown = true;
 			this.triggerAnimations(true);
 			this.isDown = false;
@@ -181,6 +184,7 @@ export default class {
 
 	drawAll() {
 		const animations = this.activeAnimations;
+
 		this.activeAnimations = this.animations;
 		this.onScroll();
 		this.activeAnimations = animations;
@@ -189,9 +193,13 @@ export default class {
 	getScrollPosition() {
 		if (this.listener.scrollY !== undefined) {
 			return this.listener.scrollY;
-		} else if (this.listener.pageYOffset !== undefined) {
+		}
+
+		if (this.listener.pageYOffset !== undefined) {
 			return this.listener.pageYOffset;
-		} else if (this.listener.scrollTop !== undefined) {
+		}
+
+		if (this.listener.scrollTop !== undefined) {
 			return this.listener.scrollTop;
 		}
 
@@ -249,6 +257,7 @@ export default class {
 			}
 
 			const o = a.animationObject;
+
 			o.scroll = this.scroll;
 
 			const directionOffset = a.directionOffset || 0;
@@ -277,13 +286,11 @@ export default class {
 					if (o.isScrolledInOnce === undefined) {
 						o.isScrolledInOnce = true;
 					}
-				} else {
-					if (o.previousIsInView !== undefined) {
-						o.isScrolledOut = true;
+				} else if (o.previousIsInView !== undefined) {
+					o.isScrolledOut = true;
 
-						if (o.isScrolledOutOnce === undefined) {
-							o.isScrolledOutOnce = true;
-						}
+					if (o.isScrolledOutOnce === undefined) {
+						o.isScrolledOutOnce = true;
 					}
 				}
 			}
@@ -377,8 +384,6 @@ export default class {
 
 			this.animations.push(animation);
 		});
-
-		// this.onResize();
 	}
 
 	updateActiveAnimations() {
@@ -395,7 +400,7 @@ export default class {
 		this.animations = this.animations.filter(a => !items.includes(a.item));
 	}
 
-	getBox(node) {
+	static getBox(node) {
 		let el = node;
 		let x = 0;
 		let y = 0;
@@ -436,7 +441,7 @@ export default class {
 	}
 
 	initBox(a) {
-		a.box = this.getBox(a.item);
+		a.box = SmoothScroller.getBox(a.item);
 		a.animationObject.centerOffset = (this.height - a.box.height) * 0.5;
 		a.animationObject.originalTop = a.box.top;
 		a.animationObject.scroll = a.animationObject.targetScroll = this.targetScroll;
@@ -454,9 +459,9 @@ export default class {
 	}
 
 	scrollToElement(node, offset = 0, time = null) {
-		const box = this.getBox(node);
+		const box = SmoothScroller.getBox(node);
 
-		return this.scrollTo(box.top, offset, time)
+		return this.scrollTo(box.top, offset, time);
 	}
 
 	reset() {
@@ -482,7 +487,7 @@ export default class {
 		this.resize();
 	}
 
-	unsetContent(content) {
+	unsetContent() {
 		this.content = null;
 	}
 
@@ -495,6 +500,7 @@ export default class {
 			if (this.debug) {
 				console.log('remove scroll listeners');
 			}
+
 			this.listener.removeEventListener('touchstart', this.touchStartListener, this.passive);
 			this.listener.removeEventListener('wheel', this.WheelListener, this.passive);
 			this.listener.removeEventListener('scroll', this.scrollListener, this.passive);

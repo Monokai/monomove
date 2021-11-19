@@ -7,7 +7,7 @@ export default class AbstractTimeline {
 		this.delay = delay;
 	}
 
-	setTweenIn(tween, isIn) {
+	static setTweenIn(tween, isIn) {
 		tween.timelineIn = isIn;
 
 		if (tween.timelineIn !== tween.previousTimelineIn) {
@@ -21,7 +21,7 @@ export default class AbstractTimeline {
 		}
 	}
 
-	setTweenVisibility(tween, isVisible) {
+	static setTweenVisibility(tween, isVisible) {
 		tween.timelineVisible = isVisible;
 
 		if (tween.timelineVisible !== tween.previousTimelineVisible) {

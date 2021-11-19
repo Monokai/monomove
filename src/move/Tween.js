@@ -10,16 +10,18 @@ export default class {
 			this.object = {
 				value: 0
 			};
+
 			this.onUpdateCallback = object;
 			this.valuesEnd = {
 				value: 1
 			};
-			this._duration = duration * 1000;
+
+			this.durationMS = duration * 1000;
 		} else {
 			// normal initialization
-			this.object           = object;
-			this._duration         = 1000;
-			this.valuesEnd        = {};
+			this.object = object;
+			this.durationMS = 1000;
+			this.valuesEnd = {};
 			this.onUpdateCallback = null;
 		}
 
@@ -48,19 +50,6 @@ export default class {
 		});
 	}
 
-	// static async delay(time) {
-	// 	return new Promise(resolve => {
-	// 		new this()
-	// 			.duration(time)
-	// 			.onComplete(resolve)
-	// 			.start();
-	// 	});
-	// }
-
-	// static getTime() {
-	// 	return RenderLoop.getTime();
-	// }
-
 	from(properties) {
 		Object.keys(properties).forEach(key => {
 			this.object[key] = properties[key];
@@ -75,7 +64,7 @@ export default class {
 
 	to(properties, duration) {
 		if (duration !== undefined) {
-			this._duration = duration * 1000;
+			this.durationMS = duration * 1000;
 		}
 
 		this.valuesEnd = properties;
@@ -84,7 +73,7 @@ export default class {
 	}
 
 	duration(duration) {
-		this._duration = duration * 1000;
+		this.durationMS = duration * 1000;
 
 		return this;
 	}
@@ -129,14 +118,13 @@ export default class {
 			this.valuesStart[key] = this.object[key];
 		});
 
-		if (this._duration === 0 && this.loopNum === 0 && this.delayTime === 0) {
+		if (this.durationMS === 0 && this.loopNum === 0 && this.delayTime === 0) {
 			// trigger immediately and be done with it
 			this.update(time);
 			this.isPlaying = false;
-		} else {
-			if (!wasPlaying) {
-				TweenManager.add(this);
-			}
+		} else if (!wasPlaying) {
+			TweenManager.add(this);
+			RenderLoop.trigger();
 		}
 
 		return this;
@@ -280,7 +268,8 @@ export default class {
 
 		this.elapsed = time - this.startTime;
 
-		const normalizedElapsed = this._duration === 0 ? 1 : Math.min(this.elapsed / this._duration, 1);
+		const normalizedElapsed = this.durationMS === 0 ? 1 : Math.min(this.elapsed / this.durationMS, 1);
+
 		this.value = this.easingFunction(normalizedElapsed);
 
 		if (this.previousTime === null) {
@@ -303,10 +292,8 @@ export default class {
 
 				this.loopCount--;
 				this.restart();
-			} else {
-				if (this.onCompleteCallback && this.isPlaying) {
-					this.onCompleteCallback(this.object, time - this.startTime);
-				}
+			} else if (this.onCompleteCallback && this.isPlaying) {
+				this.onCompleteCallback(this.object, time - this.startTime);
 			}
 
 			// check if started again in callback

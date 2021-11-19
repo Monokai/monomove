@@ -1,7 +1,7 @@
 const MAX_NEWTON_ITERATIONS = 16;
 const NUM_CACHED_VALUES = 11;
 
-export default class {
+export default class BezierEasing {
 
 	constructor(_x1, _y1 = 0, _x2 = 0, _y2 = 0) {
 		let x1 = _x1;
@@ -29,35 +29,38 @@ export default class {
 		this.isPreComputed = false;
 	}
 
-	a(a, b) {
+	static a(a, b) {
 		return 1 - 3 * b + 3 * a;
 	}
 
-	b(a, b) {
+	static b(a, b) {
 		return 3 * b - 6 * a;
 	}
 
-	c(a) {
+	static c(a) {
 		return 3 * a;
 	}
 
-	calculateBezier(t, a, b) {
-		return ((this.a(a, b) * t + this.b(a, b)) * t + this.c(a)) * t;
+	static calculateBezier(t, a, b) {
+		return ((BezierEasing.a(a, b) * t + BezierEasing.b(a, b)) * t + BezierEasing.c(a)) * t;
 	}
 
-	getSlope(t, a, b) {
-		return 3 * this.a(a, b) * t * t + 2 * this.b(a, b) * t + this.c(a);
+	static getSlope(t, a, b) {
+		return 3 * BezierEasing.a(a, b) * t * t + 2 * BezierEasing.b(a, b) * t + BezierEasing.c(a);
 	}
 
-	newtonRaphson(a, _t, x1, x2) {
+	static newtonRaphson(a, _t, x1, x2) {
 		let t = _t;
 
 		for (let i = 0; i < MAX_NEWTON_ITERATIONS; ++i) {
-			const slope = this.getSlope(t, x1, x2);
+			const slope = BezierEasing.getSlope(t, x1, x2);
+
 			if (slope === 0) {
 				return t;
 			}
-			const x = this.calculateBezier(t, x1, x2) - a;
+
+			const x = BezierEasing.calculateBezier(t, x1, x2) - a;
+
 			t -= x / slope;
 		}
 
@@ -66,7 +69,7 @@ export default class {
 
 	preCompute() {
 		for (let i = 0; i < NUM_CACHED_VALUES; ++i) {
-			this.cachedValues[i] = this.calculateBezier(i * this.cachedValueStepSize, this.x1, this.x2);
+			this.cachedValues[i] = BezierEasing.calculateBezier(i * this.cachedValueStepSize, this.x1, this.x2);
 		}
 
 		this.isPreComputed = true;
@@ -87,7 +90,7 @@ export default class {
 		const dist = (x - this.cachedValues[i]) / (this.cachedValues[i + 1] - this.cachedValues[i]);
 		const guessForT = start + dist * this.cachedValueStepSize;
 
-		return this.newtonRaphson(x, guessForT, this.x1, this.x2);
+		return BezierEasing.newtonRaphson(x, guessForT, this.x1, this.x2);
 	}
 
 	get(x) {
@@ -97,11 +100,13 @@ export default class {
 
 		if (x === 0) {
 			return 0;
-		} else if (x === 1) {
+		}
+
+		if (x === 1) {
 			return 1;
 		}
 
-		return this.calculateBezier(this.getT(x), this.y1, this.y2);
+		return BezierEasing.calculateBezier(this.getT(x), this.y1, this.y2);
 	}
 
 }

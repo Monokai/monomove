@@ -7,7 +7,7 @@ export default class TweenChain extends AbstractTimeline {
 		super(options);
 
 		this.tweens = tweens.reduce((a, o, i) => this.addTween(a, o, i === 0 ? this.delay : 0), []);
-		this.totalTime = this.tweens.reduce((total, tween) => total + tween.delayTime + tween._duration, 0);
+		this.totalTime = this.tweens.reduce((total, tween) => total + tween.delayTime + tween.durationMS, 0);
 	}
 
 	addTween(a, o, delay = 0) {
@@ -36,8 +36,7 @@ export default class TweenChain extends AbstractTimeline {
 		// reset all tweens that start later than position
 		for (let i = this.tweens.length - 1; i >= 0; i--) {
 			const tween = this.tweens[i];
-
-			const tweenDuration = tween._duration;
+			const tweenDuration = tween.durationMS;
 			const tweenTime = tween.delayTime + tweenDuration;
 
 			t -= tweenTime;
@@ -47,8 +46,8 @@ export default class TweenChain extends AbstractTimeline {
 			if (tweenStartTime > time) {
 				tween.value = 0;
 
-				this.setTweenVisibility(tween, false);
-				this.setTweenIn(tween, false);
+				TweenChain.setTweenVisibility(tween, false);
+				TweenChain.setTweenIn(tween, false);
 
 				tween.invalidate();
 				tween.updateAllValues();
@@ -59,8 +58,9 @@ export default class TweenChain extends AbstractTimeline {
 
 		t = 0;
 
-		for (const tween of this.tweens) {
-			const tweenDuration = tween._duration;
+		for (let i = 0; i < this.tweens.length; i++) {
+			const tween = this.tweens[i];
+			const tweenDuration = tween.durationMS;
 			const tweenTime = tween.delayTime + tweenDuration;
 			const tweenStartTime = t + tween.delayTime;
 
@@ -69,15 +69,15 @@ export default class TweenChain extends AbstractTimeline {
 			if (t <= time) {
 				tween.value = 1;
 
-				this.setTweenVisibility(tween, true);
-				this.setTweenIn(tween, false);
+				TweenChain.setTweenVisibility(tween, true);
+				TweenChain.setTweenIn(tween, false);
 			} else if (tweenStartTime <= time) {
 				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
 				tween.value = tween.easingFunction(normalized);
 
-				this.setTweenVisibility(tween, true);
-				this.setTweenIn(tween, true);
+				TweenChain.setTweenVisibility(tween, true);
+				TweenChain.setTweenIn(tween, true);
 			} else {
 				break;
 			}
@@ -92,9 +92,7 @@ export default class TweenChain extends AbstractTimeline {
 	}
 
 	async start() {
-		for (const tween of this.tweens) {
-			await tween.start();
-		}
+		this.tweens.forEach(tween => tween.start());
 	}
 
 }
