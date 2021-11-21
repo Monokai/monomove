@@ -3,14 +3,22 @@ const NUM_CACHED_VALUES = 11;
 
 export default class BezierEasing {
 
+	#cachedValueStepSize;
+	#cachedValues;
+	#x1;
+	#y1;
+	#x2;
+	#y2;
+	#isPreComputed;
+
 	constructor(_x1, _y1 = 0, _x2 = 0, _y2 = 0) {
 		let x1 = _x1;
 		let y1 = _y1;
 		let x2 = _x2;
 		let y2 = _y2;
 
-		this.cachedValueStepSize = 1 / (NUM_CACHED_VALUES - 1);
-		this.cachedValues = new Array(NUM_CACHED_VALUES);
+		this.#cachedValueStepSize = 1 / (NUM_CACHED_VALUES - 1);
+		this.#cachedValues = new Array(NUM_CACHED_VALUES);
 
 		if (typeof x1 === 'string') {
 			const p = x1.split(',');
@@ -21,12 +29,11 @@ export default class BezierEasing {
 			y2 = Number(p[3]);
 		}
 
-		this.x1 = x1;
-		this.y1 = y1;
-		this.x2 = x2;
-		this.y2 = y2;
-
-		this.isPreComputed = false;
+		this.#x1 = x1;
+		this.#y1 = y1;
+		this.#x2 = x2;
+		this.#y2 = y2;
+		this.#isPreComputed = false;
 	}
 
 	static a(a, b) {
@@ -67,35 +74,35 @@ export default class BezierEasing {
 		return t;
 	}
 
-	preCompute() {
+	#preCompute() {
 		for (let i = 0; i < NUM_CACHED_VALUES; ++i) {
-			this.cachedValues[i] = BezierEasing.calculateBezier(i * this.cachedValueStepSize, this.x1, this.x2);
+			this.#cachedValues[i] = BezierEasing.calculateBezier(i * this.#cachedValueStepSize, this.#x1, this.#x2);
 		}
 
-		this.isPreComputed = true;
+		this.#isPreComputed = true;
 	}
 
-	getT(x) {
+	#getT(x) {
 		const lastSample = NUM_CACHED_VALUES - 1;
 
 		let start = 0;
 		let i = 1;
 
-		for (; i !== lastSample && this.cachedValues[i] <= x; ++i) {
-			start += this.cachedValueStepSize;
+		for (; i !== lastSample && this.#cachedValues[i] <= x; ++i) {
+			start += this.#cachedValueStepSize;
 		}
 
 		--i;
 
-		const dist = (x - this.cachedValues[i]) / (this.cachedValues[i + 1] - this.cachedValues[i]);
-		const guessForT = start + dist * this.cachedValueStepSize;
+		const dist = (x - this.#cachedValues[i]) / (this.#cachedValues[i + 1] - this.#cachedValues[i]);
+		const guessForT = start + dist * this.#cachedValueStepSize;
 
-		return BezierEasing.newtonRaphson(x, guessForT, this.x1, this.x2);
+		return BezierEasing.newtonRaphson(x, guessForT, this.#x1, this.#x2);
 	}
 
 	get(x) {
-		if (!this.isPreComputed) {
-			this.preCompute();
+		if (!this.#isPreComputed) {
+			this.#preCompute();
 		}
 
 		if (x === 0) {
@@ -106,7 +113,7 @@ export default class BezierEasing {
 			return 1;
 		}
 
-		return BezierEasing.calculateBezier(this.getT(x), this.y1, this.y2);
+		return BezierEasing.calculateBezier(this.#getT(x), this.#y1, this.#y2);
 	}
 
 }

@@ -1,5 +1,8 @@
 export default class AbstractTimeline {
 
+	previousPosition = null;
+	delay = null;
+
 	constructor({
 		delay = 0
 	} = {}) {

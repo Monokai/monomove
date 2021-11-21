@@ -4,6 +4,31 @@ import TweenManager from './TweenManager';
 
 export default class {
 
+	durationMS = null;
+	isPlaying = null;
+	delayTime = null;
+	startTime = null;
+	easingFunction = null;
+	object = null;
+	value = null;
+
+	#onUpdateCallback;
+	#valuesEnd;
+	#loopNum;
+	#loopCount;
+	#onLoopCallback;
+	#onCompleteCallback;
+	#onStartCallback;
+	#onStartCallbackFired;
+	#onTimelineInCallback;
+	#onTimelineOutCallback;
+	#onTimelineVisibleCallback;
+	#onTimelineInvisibleCallback;
+	#previousTime;
+	#elapsed;
+	#valuesStart;
+	#previousUpdateValue;
+
 	constructor(object = {}, duration = 1) {
 		if (typeof object === 'function' && duration !== undefined) {
 			// shortcut
@@ -11,8 +36,8 @@ export default class {
 				value: 0
 			};
 
-			this.onUpdateCallback = object;
-			this.valuesEnd = {
+			this.#onUpdateCallback = object;
+			this.#valuesEnd = {
 				value: 1
 			};
 
@@ -20,33 +45,34 @@ export default class {
 		} else {
 			// normal initialization
 			this.object = object;
+			this.#valuesEnd = {};
+			this.#onUpdateCallback = null;
 			this.durationMS = 1000;
-			this.valuesEnd = {};
-			this.onUpdateCallback = null;
 		}
 
-		this.loopNum                     = 0;
-		this.loopCount                   = 0;
+		this.#loopNum                     = 0;
+		this.#loopCount                   = 0;
+		this.#onLoopCallback              = null;
+		this.#onCompleteCallback          = null;
+		this.#onStartCallback             = null;
+		this.#onStartCallbackFired        = false;
+		this.#onTimelineInCallback        = null;
+		this.#onTimelineOutCallback       = null;
+		this.#onTimelineVisibleCallback   = null;
+		this.#onTimelineInvisibleCallback = null;
+		this.#previousTime                = null;
+		this.#elapsed                     = 0;
+		this.#valuesStart                 = {};
+		this.#previousUpdateValue         = null;
+
+		this.easingFunction              = k => k;
+		this.value                       = 0;
 		this.delayTime                   = 0;
 		this.isPlaying                   = false;
-		this.onLoopCallback              = null;
-		this.onCompleteCallback          = null;
-		this.onStartCallback             = null;
-		this.onStartCallbackFired        = false;
-		this.onTimelineInCallback        = null;
-		this.onTimelineOutCallback       = null;
-		this.onTimelineVisibleCallback   = null;
-		this.onTimelineInvisibleCallback = null;
-		this.previousTime                = null;
 		this.startTime                   = null;
-		this.value                       = 0;
-		this.elapsed                     = 0;
-		this.valuesStart                 = {};
-		this.previousUpdateValue         = null;
-		this.easingFunction              = k => k;
 
 		Object.keys(this.object).forEach(key => {
-			this.valuesStart[key] = this.object[key];
+			this.#valuesStart[key] = this.object[key];
 		});
 	}
 
@@ -55,8 +81,8 @@ export default class {
 			this.object[key] = properties[key];
 		});
 
-		if (this.onUpdateCallback !== null) {
-			this.onUpdateCallback(this.object, this.value, 0);
+		if (this.#onUpdateCallback !== null) {
+			this.#onUpdateCallback(this.object, this.value, 0);
 		}
 
 		return this;
@@ -67,7 +93,7 @@ export default class {
 			this.durationMS = duration * 1000;
 		}
 
-		this.valuesEnd = properties;
+		this.#valuesEnd = properties;
 
 		return this;
 	}
@@ -80,7 +106,7 @@ export default class {
 
 	rewind() {
 		Object.keys(this.object).forEach(key => {
-			this.object[key] = this.valuesStart[key];
+			this.object[key] = this.#valuesStart[key];
 		});
 
 		this.value = this.easingFunction(0);
@@ -93,32 +119,32 @@ export default class {
 	}
 
 	loop(num = Infinity) {
-		this.loopNum = num;
-		this.loopCount = num;
+		this.#loopNum = num;
+		this.#loopCount = num;
 
 		return this;
 	}
 
-	onLoop(callback) {
-		this.onLoopCallback = callback;
+	#onLoop(callback) {
+		this.#onLoopCallback = callback;
 
 		return this;
 	}
 
-	startTween(time = RenderLoop.getTime()) {
+	#startTween(time = RenderLoop.getTime()) {
 		const wasPlaying = this.isPlaying;
 
-		this.elapsed = 0;
-		this.isPlaying = true;
-		this.onStartCallbackFired = false;
-		this.startTime = time;
-		this.startTime += this.delayTime;
+		this.#elapsed = 0;
+		this.#onStartCallbackFired = false;
 
-		Object.keys(this.valuesEnd).forEach(key => {
-			this.valuesStart[key] = this.object[key];
+		this.isPlaying = true;
+		this.startTime = time + this.delayTime;
+
+		Object.keys(this.#valuesEnd).forEach(key => {
+			this.#valuesStart[key] = this.object[key];
 		});
 
-		if (this.durationMS === 0 && this.loopNum === 0 && this.delayTime === 0) {
+		if (this.durationMS === 0 && this.#loopNum === 0 && this.delayTime === 0) {
 			// trigger immediately and be done with it
 			this.update(time);
 			this.isPlaying = false;
@@ -131,10 +157,10 @@ export default class {
 	}
 
 	start(...args) {
-		const onComplete = this.onCompleteCallback;
+		const onComplete = this.#onCompleteCallback;
 
 		return new Promise(resolve => {
-			this.onCompleteCallback = () => {
+			this.#onCompleteCallback = () => {
 				if (onComplete) {
 					onComplete();
 				}
@@ -142,7 +168,7 @@ export default class {
 				resolve(this);
 			};
 
-			this.startTween(...args);
+			this.#startTween(...args);
 		});
 	}
 
@@ -184,70 +210,70 @@ export default class {
 		return this;
 	}
 
-	onStart(callback) {
-		this.onStartCallback = callback;
+	#onStart(callback) {
+		this.#onStartCallback = callback;
 
 		return this;
 	}
 
-	onUpdate(callback) {
-		this.onUpdateCallback = callback;
+	#onUpdate(callback) {
+		this.#onUpdateCallback = callback;
 
 		return this;
 	}
 
-	onComplete(callback = null) {
-		this.onCompleteCallback = callback;
+	#onComplete(callback = null) {
+		this.#onCompleteCallback = callback;
 
 		return this;
 	}
 
 	onTimelineIn(callback) {
-		this.onTimelineInCallback = callback;
+		this.#onTimelineInCallback = callback;
 
 		return this;
 	}
 
 	onTimelineOut(callback) {
-		this.onTimelineOutCallback = callback;
+		this.#onTimelineOutCallback = callback;
 
 		return this;
 	}
 
 	onTimelineVisible(callback) {
-		this.onTimelineVisibleCallback = callback;
+		this.#onTimelineVisibleCallback = callback;
 
 		return this;
 	}
 
 	onTimelineInvisible(callback) {
-		this.onTimelineInvisibleCallback = callback;
+		this.#onTimelineInvisibleCallback = callback;
 
 		return this;
 	}
 
 	updateAllValues(delta = 0) {
-		if (this.value === this.previousUpdateValue) {
+		if (this.value === this.#previousUpdateValue) {
 			return;
 		}
 
-		Object.entries(this.valuesEnd).forEach(this.updateValue, this);
+		Object.entries(this.#valuesEnd).forEach(this.#updateValue, this);
 
-		if (this.onUpdateCallback !== null) {
-			this.onUpdateCallback(this.object, this.value, delta);
+		if (this.#onUpdateCallback !== null) {
+			this.#onUpdateCallback(this.object, this.value, delta);
 		}
 
-		this.previousUpdateValue = this.value;
+		this.#previousUpdateValue = this.value;
 	}
 
 	invalidate() {
-		this.previousUpdateValue = null;
+		this.#previousUpdateValue = null;
 
 		return this;
 	}
 
-	updateValue([key, value]) {
-		const start = this.valuesStart[key];
+	#updateValue([key, value]) {
+		const start = this.#valuesStart[key];
 
 		this.object[key] = start + (value - start) * this.value;
 	}
@@ -257,43 +283,43 @@ export default class {
 			return true;
 		}
 
-		if (this.onStartCallbackFired === false) {
-			if (this.onStartCallback !== null) {
-				this.onStartCallback(this.object);
+		if (this.#onStartCallbackFired === false) {
+			if (this.#onStartCallback !== null) {
+				this.#onStartCallback(this.object);
 			}
 
-			this.onStartCallbackFired = true;
+			this.#onStartCallbackFired = true;
 			RenderLoop.trigger();
 		}
 
-		this.elapsed = time - this.startTime;
+		this.#elapsed = time - this.startTime;
 
-		const normalizedElapsed = this.durationMS === 0 ? 1 : Math.min(this.elapsed / this.durationMS, 1);
+		const normalizedElapsed = this.durationMS === 0 ? 1 : Math.min(this.#elapsed / this.durationMS, 1);
 
 		this.value = this.easingFunction(normalizedElapsed);
 
-		if (this.previousTime === null) {
-			this.previousTime = time;
+		if (this.#previousTime === null) {
+			this.#previousTime = time;
 		}
 
-		const delta = time - this.previousTime;
+		const delta = time - this.#previousTime;
 
-		this.previousTime = time;
+		this.#previousTime = time;
 
 		this.updateAllValues(delta);
 
 		if (normalizedElapsed === 1) {
 			const tempStartTime = this.startTime;
 
-			if (this.loopCount > 0) {
-				if (this.onLoopCallback) {
-					this.onLoopCallback(this.object, this.loopNum - this.loopCount);
+			if (this.#loopCount > 0) {
+				if (this.#onLoopCallback) {
+					this.#onLoopCallback(this.object, this.#loopNum - this.#loopCount);
 				}
 
-				this.loopCount--;
+				this.#loopCount--;
 				this.restart();
-			} else if (this.onCompleteCallback && this.isPlaying) {
-				this.onCompleteCallback(this.object, time - this.startTime);
+			} else if (this.#onCompleteCallback && this.isPlaying) {
+				this.#onCompleteCallback(this.object, time - this.startTime);
 			}
 
 			// check if started again in callback
