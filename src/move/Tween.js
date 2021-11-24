@@ -219,7 +219,7 @@ export default class {
 		return this;
 	}
 
-	#onUpdate(callback) {
+	onUpdate(callback) {
 		this.#onUpdateCallback = callback;
 
 		return this;
