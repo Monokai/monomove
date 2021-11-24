@@ -36,37 +36,37 @@ export default class BezierEasing {
 		this.#isPreComputed = false;
 	}
 
-	static a(a, b) {
+	static #a(a, b) {
 		return 1 - 3 * b + 3 * a;
 	}
 
-	static b(a, b) {
+	static #b(a, b) {
 		return 3 * b - 6 * a;
 	}
 
-	static c(a) {
+	static #c(a) {
 		return 3 * a;
 	}
 
-	static calculateBezier(t, a, b) {
-		return ((BezierEasing.a(a, b) * t + BezierEasing.b(a, b)) * t + BezierEasing.c(a)) * t;
+	static #calculateBezier(t, a, b) {
+		return ((BezierEasing.#a(a, b) * t + BezierEasing.#b(a, b)) * t + BezierEasing.#c(a)) * t;
 	}
 
-	static getSlope(t, a, b) {
-		return 3 * BezierEasing.a(a, b) * t * t + 2 * BezierEasing.b(a, b) * t + BezierEasing.c(a);
+	static #getSlope(t, a, b) {
+		return 3 * BezierEasing.#a(a, b) * t * t + 2 * BezierEasing.#b(a, b) * t + BezierEasing.#c(a);
 	}
 
-	static newtonRaphson(a, _t, x1, x2) {
+	static #newtonRaphson(a, _t, x1, x2) {
 		let t = _t;
 
 		for (let i = 0; i < MAX_NEWTON_ITERATIONS; ++i) {
-			const slope = BezierEasing.getSlope(t, x1, x2);
+			const slope = BezierEasing.#getSlope(t, x1, x2);
 
 			if (slope === 0) {
 				return t;
 			}
 
-			const x = BezierEasing.calculateBezier(t, x1, x2) - a;
+			const x = BezierEasing.#calculateBezier(t, x1, x2) - a;
 
 			t -= x / slope;
 		}
@@ -76,7 +76,7 @@ export default class BezierEasing {
 
 	#preCompute() {
 		for (let i = 0; i < NUM_CACHED_VALUES; ++i) {
-			this.#cachedValues[i] = BezierEasing.calculateBezier(i * this.#cachedValueStepSize, this.#x1, this.#x2);
+			this.#cachedValues[i] = BezierEasing.#calculateBezier(i * this.#cachedValueStepSize, this.#x1, this.#x2);
 		}
 
 		this.#isPreComputed = true;
@@ -97,7 +97,7 @@ export default class BezierEasing {
 		const dist = (x - this.#cachedValues[i]) / (this.#cachedValues[i + 1] - this.#cachedValues[i]);
 		const guessForT = start + dist * this.#cachedValueStepSize;
 
-		return BezierEasing.newtonRaphson(x, guessForT, this.#x1, this.#x2);
+		return BezierEasing.#newtonRaphson(x, guessForT, this.#x1, this.#x2);
 	}
 
 	get(x) {
@@ -113,7 +113,7 @@ export default class BezierEasing {
 			return 1;
 		}
 
-		return BezierEasing.calculateBezier(this.#getT(x), this.#y1, this.#y2);
+		return BezierEasing.#calculateBezier(this.#getT(x), this.#y1, this.#y2);
 	}
 
 }
