@@ -14,6 +14,7 @@ export default class {
 
 	#onUpdateCallback;
 	#valuesEnd;
+	#valuesEndEntries;
 	#loopNum;
 	#loopCount;
 	#onLoopCallback;
@@ -144,6 +145,8 @@ export default class {
 			this.#valuesStart[key] = this.object[key];
 		});
 
+		this.#valuesEndEntries = Object.entries(this.#valuesEnd);
+
 		if (this.durationMS === 0 && this.#loopNum === 0 && this.delayTime === 0) {
 			// trigger immediately and be done with it
 			this.update(time);
@@ -257,7 +260,7 @@ export default class {
 			return;
 		}
 
-		Object.entries(this.#valuesEnd).forEach(this.#updateValue, this);
+		this.#valuesEndEntries.forEach(this.#updateValue, this);
 
 		if (this.#onUpdateCallback !== null) {
 			this.#onUpdateCallback(this.object, this.value, delta);
