@@ -17,7 +17,7 @@ export default class RenderLoop {
 	static #onlyHasDelayedTweens = false;
 	static #performance = window.performance;
 
-	static {
+	static staticConstructor() {
 		if (!this.#performance?.now) {
 			const offset = this.#performance.timing && this.#performance.timing.navigationStart ? this.#performance.timing.navigationStart : Date.now();
 
@@ -131,3 +131,5 @@ export default class RenderLoop {
 	}
 
 }
+
+RenderLoop.staticConstructor();
