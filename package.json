@@ -1,6 +1,6 @@
 {
   "name": "monomove",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "utilities for moving things on screen",
   "main": "dist/monomove.js",
   "module": "src/index.js",
@@ -20,15 +20,16 @@
   "author": "Monokai",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.14.8",
+    "@babel/core": "^7.16.0",
     "@babel/eslint-parser": "^7.16.3",
-    "@babel/preset-env": "^7.14.8",
-    "babel-loader": "^8.2.2",
-    "core-js": "^3.15.2",
-    "eslint": "^8.2.0",
-    "eslint-config-airbnb": "^19.0.0",
+    "@babel/plugin-proposal-class-properties": "^7.16.0",
+    "@babel/preset-env": "^7.16.4",
+    "babel-loader": "^8.2.3",
+    "core-js": "^3.19.1",
+    "eslint": "^8.3.0",
+    "eslint-config-airbnb": "^19.0.1",
     "eslint-plugin-import": "^2.25.3",
-    "webpack": "^5.46.0",
-    "webpack-cli": "^4.7.2"
+    "webpack": "^5.64.3",
+    "webpack-cli": "^4.9.1"
   }
 }

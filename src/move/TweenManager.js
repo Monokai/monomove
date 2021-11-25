@@ -1,20 +1,14 @@
-export default new class {
+export default class {
 
-	#tweens;
-	#deadTweens;
-	#time;
+	static #tweens = [];
+	static #deadTweens = [];
+	static #time = 0;
 
-	constructor() {
-		this.#tweens = [];
-		this.#deadTweens = [];
-		this.#time = 0;
-	}
-
-	getAll() {
+	static getAll() {
 		return this.#tweens;
 	}
 
-	removeAll() {
+	static removeAll() {
 		this.#tweens.forEach(tween => {
 			tween.isPlaying = false;
 		});
@@ -22,11 +16,11 @@ export default new class {
 		this.#tweens.length = 0;
 	}
 
-	add(tween) {
+	static add(tween) {
 		this.#tweens.push(tween);
 	}
 
-	remove(tween) {
+	static remove(tween) {
 		const i = this.#tweens.indexOf(tween);
 
 		if (i !== -1) {
@@ -34,23 +28,23 @@ export default new class {
 		}
 	}
 
-	#removeDeadTween(tween) {
+	static #removeDeadTween(tween) {
 		if (!tween.isPlaying) {
 			this.remove(tween);
 		}
 	}
 
-	#updateTween(tween) {
+	static #updateTween(tween) {
 		if (!tween.update(this.#time)) {
 			this.#deadTweens.push(tween);
 		}
 	}
 
-	onlyHasDelayedTweens(time) {
+	static onlyHasDelayedTweens(time) {
 		return this.#tweens.length > 0 && this.#tweens.every(t => time < t.startTime);
 	}
 
-	onTick(time) {
+	static onTick(time) {
 		if (this.#tweens.length === 0) {
 			return false;
 		}
@@ -65,4 +59,4 @@ export default new class {
 		return true;
 	}
 
-}();
+}

@@ -1,37 +1,23 @@
 import './RAF';
 import TweenManager from './TweenManager';
 
-export default new class RenderLoop {
+export default class RenderLoop {
 
-	#callbacks;
-	#cleanUps;
-	#dirtyCallbacks;
-	#isAnimating;
-	#ms;
-	#pauseTime;
-	#pauseTimeStart;
-	#performance;
-	#previousTime;
-	#requestAnimation;
-	#requestID;
-	#time;
-	#onlyHasDelayedTweens;
+	static #callbacks = [];
+	static #cleanUps = [];
+	static #dirtyCallbacks = 0;
+	static #isAnimating = true;
+	static #ms = 0;
+	static #pauseTime = 0;
+	static #pauseTimeStart = 0;
+	static #previousTime = 0;
+	static #requestAnimation = true;
+	static #requestID = 0;
+	static #time = 0;
+	static #onlyHasDelayedTweens = false;
+	static #performance = window.performance;
 
-	constructor() {
-		this.#callbacks = [];
-		this.#cleanUps = [];
-		this.#dirtyCallbacks = 0;
-		this.#isAnimating = true;
-		this.#ms = 0;
-		this.#pauseTime = 0;
-		this.#pauseTimeStart = 0;
-		this.#previousTime = 0;
-		this.#requestAnimation = true;
-		this.#requestID = 0;
-		this.#time = 0;
-		this.#onlyHasDelayedTweens = false;
-		this.#performance = window.performance;
-
+	static {
 		if (!this.#performance?.now) {
 			const offset = this.#performance.timing && this.#performance.timing.navigationStart ? this.#performance.timing.navigationStart : Date.now();
 
@@ -43,7 +29,7 @@ export default new class RenderLoop {
 		this.#animate();
 	}
 
-	#tick(callback) {
+	static #tick(callback) {
 		if (callback.isPlaying) {
 			const isDirty = callback.funk.call(callback.context, this.#ms);
 
@@ -59,7 +45,7 @@ export default new class RenderLoop {
 		}
 	}
 
-	#animate() {
+	static #animate() {
 		const animationLoop = () => {
 			this.#time = this.#performance.now() - this.#pauseTime;
 			this.#ms = this.#previousTime ? this.#time - this.#previousTime : 0;
@@ -90,7 +76,7 @@ export default new class RenderLoop {
 		animationLoop();
 	}
 
-	stop(callback) {
+	static stop(callback) {
 		this.#isAnimating = false;
 		window.cancelAnimationFrame(this.#requestID);
 
@@ -101,7 +87,7 @@ export default new class RenderLoop {
 		this.trigger();
 	}
 
-	add(context, funk, cleanUp) {
+	static add(context, funk, cleanUp) {
 		const o = {
 			context,
 			funk,
@@ -118,7 +104,7 @@ export default new class RenderLoop {
 		this.trigger();
 	}
 
-	remove(context, funk) {
+	static remove(context, funk) {
 		const filter = f => !(f.context === context && (funk ? f.funk === funk : true));
 
 		this.#callbacks = this.#callbacks.filter(filter);
@@ -127,7 +113,7 @@ export default new class RenderLoop {
 		this.trigger();
 	}
 
-	trigger() {
+	static trigger() {
 		this.#onlyHasDelayedTweens = false;
 
 		if (this.#requestAnimation) {
@@ -138,10 +124,10 @@ export default new class RenderLoop {
 		this.#requestID = window.requestAnimationFrame(this.#animate.bind(this));
 	}
 
-	getTime() {
+	static getTime() {
 		this.#time = this.#performance.now() - this.#pauseTime;
 
 		return this.#time;
 	}
 
-}();
+}
