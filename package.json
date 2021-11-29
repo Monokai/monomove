@@ -1,6 +1,6 @@
 {
   "name": "monomove",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "utilities for moving things on screen",
   "main": "dist/monomove.js",
   "module": "src/index.js",

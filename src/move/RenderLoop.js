@@ -39,7 +39,7 @@ export default class RenderLoop {
 		}
 	}
 
-	static cleanUpFunk(callback) {
+	static #cleanUpFunk(callback) {
 		if (callback.isPlaying) {
 			callback.cleanUp.call(callback.context);
 		}
@@ -66,7 +66,7 @@ export default class RenderLoop {
 			}
 
 			if (!this.#onlyHasDelayedTweens) {
-				this.#cleanUps.forEach(RenderLoop.cleanUpFunk, this);
+				this.#cleanUps.forEach(RenderLoop.#cleanUpFunk, this);
 			}
 
 			this.#onlyHasDelayedTweens = this.#dirtyCallbacks === 0 && TweenManager.onlyHasDelayedTweens(this.#time);
@@ -78,6 +78,7 @@ export default class RenderLoop {
 
 	static stop(callback) {
 		this.#isAnimating = false;
+
 		window.cancelAnimationFrame(this.#requestID);
 
 		if (callback) {
@@ -102,6 +103,13 @@ export default class RenderLoop {
 		}
 
 		this.trigger();
+	}
+
+	static reset() {
+		this.#callbacks.length = 0;
+		this.#cleanUps.length = 0;
+
+		TweenManager.removeAll();
 	}
 
 	static remove(context, funk) {
