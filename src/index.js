@@ -1,6 +1,8 @@
-/** @license
-	Monomove © 2021 Monokai
-	Utilities for moving things on screen
+/**
+ * @license
+ * Monomove
+ * Utilities for moving things on screen
+ * © 2021 Monokai
 */
 
 import MMTween from './move/Tween';
