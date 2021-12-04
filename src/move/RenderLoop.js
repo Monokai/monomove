@@ -138,6 +138,25 @@ export default class RenderLoop {
 		return this.#time;
 	}
 
+	static pause() {
+		this.#pauseTimeStart = this.#performance.now();
+		this.#requestAnimation = false;
+
+		this.stop();
+	}
+
+	static play() {
+		this.#pauseTime += this.#performance.now() - this.#pauseTimeStart;
+
+		this.#isAnimating = true;
+
+		this.trigger();
+	}
+
+	static isPlaying() {
+		return this.#isAnimating;
+	}
+
 }
 
 RenderLoop.staticConstructor();
