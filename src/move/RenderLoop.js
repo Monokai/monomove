@@ -139,6 +139,10 @@ export default class RenderLoop {
 	}
 
 	static pause() {
+		if (!this.#isAnimating) {
+			return;
+		}
+
 		this.#pauseTimeStart = this.#performance.now();
 		this.#requestAnimation = false;
 
@@ -146,6 +150,10 @@ export default class RenderLoop {
 	}
 
 	static play() {
+		if (this.#isAnimating) {
+			return;
+		}
+
 		this.#pauseTime += this.#performance.now() - this.#pauseTimeStart;
 
 		this.#isAnimating = true;
