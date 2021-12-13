@@ -213,7 +213,7 @@ export default class {
 		return this;
 	}
 
-	#onStart(callback) {
+	onStart(callback) {
 		this.#onStartCallback = callback;
 
 		return this;
@@ -225,7 +225,7 @@ export default class {
 		return this;
 	}
 
-	#onComplete(callback = null) {
+	onComplete(callback = null) {
 		this.#onCompleteCallback = callback;
 
 		return this;
