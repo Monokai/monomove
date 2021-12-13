@@ -1,4 +1,3 @@
-import BezierEasing from '../math/BezierEasing';
 import RenderLoop from './RenderLoop';
 import TweenManager from './TweenManager';
 
@@ -193,7 +192,10 @@ export default class {
 		return this;
 	}
 
-	easing(_easing = k => k) {
+	easing(_easing = k => k, {
+		iterations = TweenManager.bezierIterations,
+		cacheSize = TweenManager.bezierCacheSize
+	} = {}) {
 		let easing = _easing;
 
 		if (!easing) {
@@ -201,7 +203,15 @@ export default class {
 		}
 
 		if (typeof easing === 'string') {
-			easing = new BezierEasing(easing);
+			easing = TweenManager.getEasingFromCache(easing);
+
+			if (iterations) {
+				easing.setIterations(iterations);
+			}
+
+			if (cacheSize) {
+				easing.setCacheSize(cacheSize);
+			}
 		}
 
 		if (easing.get) {

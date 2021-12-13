@@ -1,8 +1,14 @@
+import BezierEasing from '../math/BezierEasing';
+
 export default class {
 
 	static #tweens = [];
 	static #deadTweens = [];
 	static #time = 0;
+	static #easingCache = new Map();
+
+	static bezierIterations = null;
+	static bezierCacheSize = null;
 
 	static getAll() {
 		return this.#tweens;
@@ -14,6 +20,7 @@ export default class {
 		});
 
 		this.#tweens.length = 0;
+		this.#easingCache = new Map();
 	}
 
 	static add(tween) {
@@ -57,6 +64,22 @@ export default class {
 		this.#deadTweens.forEach(this.#removeDeadTween, this);
 
 		return true;
+	}
+
+	static setBezierIterations(x) {
+		this.bezierIterations = x;
+	}
+
+	static setBezierCacheSize(x) {
+		this.bezierCacheSize = x;
+	}
+
+	static getEasingFromCache(key) {
+		if (!this.#easingCache.has(key)) {
+			this.#easingCache.set(key, new BezierEasing(key));
+		}
+
+		return this.#easingCache.get(key);
 	}
 
 }

@@ -1,8 +1,7 @@
 export default class BezierEasing {
 
-	static #MAX_NEWTON_ITERATIONS = 16;
-	static #NUM_CACHED_VALUES = 11;
-
+	#iterations;
+	#cacheSize;
 	#cachedValueStepSize;
 	#cachedValues;
 	#x1;
@@ -11,16 +10,27 @@ export default class BezierEasing {
 	#y2;
 	#isPreComputed;
 
+	static #calculateBezier(t, a, b) {
+		return (((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t + (3 * a)) * t;
+	}
+
+	static #getSlope(t, a, b) {
+		return 3 * (1 - 3 * b + 3 * a) * t ** 2 + 2 * (3 * b - 6 * a) * t + (3 * a);
+	}
+
 	constructor(_x1, _y1 = 0, _x2 = 0, _y2 = 0) {
 		let x1 = _x1;
 		let y1 = _y1;
 		let x2 = _x2;
 		let y2 = _y2;
 
-		this.#cachedValueStepSize = 1 / (BezierEasing.#NUM_CACHED_VALUES - 1);
-		this.#cachedValues = new Array(BezierEasing.#NUM_CACHED_VALUES);
+		this.#iterations = 16;
+		this.#cacheSize = 11;
+		this.#cachedValueStepSize = 1 / (this.#cacheSize - 1);
+		this.#cachedValues = new Array(this.#cacheSize);
 
 		if (typeof x1 === 'string') {
+			console.log(x1);
 			const p = x1.split(',');
 
 			x1 = Number(p[0]);
@@ -36,30 +46,10 @@ export default class BezierEasing {
 		this.#isPreComputed = false;
 	}
 
-	static #a(a, b) {
-		return 1 - 3 * b + 3 * a;
-	}
-
-	static #b(a, b) {
-		return 3 * b - 6 * a;
-	}
-
-	static #c(a) {
-		return 3 * a;
-	}
-
-	static #calculateBezier(t, a, b) {
-		return ((BezierEasing.#a(a, b) * t + BezierEasing.#b(a, b)) * t + BezierEasing.#c(a)) * t;
-	}
-
-	static #getSlope(t, a, b) {
-		return 3 * BezierEasing.#a(a, b) * t * t + 2 * BezierEasing.#b(a, b) * t + BezierEasing.#c(a);
-	}
-
-	static #newtonRaphson(a, _t, x1, x2) {
+	#newtonRaphson(a, _t, x1, x2) {
 		let t = _t;
 
-		for (let i = 0; i < BezierEasing.#MAX_NEWTON_ITERATIONS; ++i) {
+		for (let i = 0; i < this.#iterations; ++i) {
 			const slope = BezierEasing.#getSlope(t, x1, x2);
 
 			if (slope === 0) {
@@ -75,7 +65,7 @@ export default class BezierEasing {
 	}
 
 	#preCompute() {
-		for (let i = 0; i < BezierEasing.#NUM_CACHED_VALUES; ++i) {
+		for (let i = 0; i < this.#cacheSize; ++i) {
 			this.#cachedValues[i] = BezierEasing.#calculateBezier(i * this.#cachedValueStepSize, this.#x1, this.#x2);
 		}
 
@@ -83,7 +73,7 @@ export default class BezierEasing {
 	}
 
 	#getT(x) {
-		const lastSample = BezierEasing.#NUM_CACHED_VALUES - 1;
+		const lastSample = this.#cacheSize - 1;
 
 		let start = 0;
 		let i = 1;
@@ -97,7 +87,7 @@ export default class BezierEasing {
 		const dist = (x - this.#cachedValues[i]) / (this.#cachedValues[i + 1] - this.#cachedValues[i]);
 		const guessForT = start + dist * this.#cachedValueStepSize;
 
-		return BezierEasing.#newtonRaphson(x, guessForT, this.#x1, this.#x2);
+		return this.#newtonRaphson(x, guessForT, this.#x1, this.#x2);
 	}
 
 	get(x) {
@@ -114,6 +104,14 @@ export default class BezierEasing {
 		}
 
 		return BezierEasing.#calculateBezier(this.#getT(x), this.#y1, this.#y2);
+	}
+
+	setIterations(x) {
+		this.#iterations = x;
+	}
+
+	setCacheSize(x) {
+		this.#cacheSize = x;
 	}
 
 }
