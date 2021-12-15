@@ -26,8 +26,7 @@ export default class BezierEasing {
 
 		this.#iterations = 16;
 		this.#cacheSize = 11;
-		this.#cachedValueStepSize = 1 / (this.#cacheSize - 1);
-		this.#cachedValues = new Array(this.#cacheSize);
+		this.setCacheSize(this.#cacheSize);
 
 		if (typeof x1 === 'string') {
 			console.log(x1);
@@ -112,6 +111,9 @@ export default class BezierEasing {
 
 	setCacheSize(x) {
 		this.#cacheSize = x;
+		this.#cachedValueStepSize = 1 / (this.#cacheSize - 1);
+		this.#cachedValues = new Array(this.#cacheSize);
+		this.#isPreComputed = false;
 	}
 
 }
