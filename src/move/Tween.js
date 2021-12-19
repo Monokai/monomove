@@ -63,6 +63,7 @@ export default class {
 		this.#previousTime                = null;
 		this.#elapsed                     = 0;
 		this.#valuesStart                 = {};
+		this.#valuesEndEntries            = [];
 		this.#previousUpdateValue         = null;
 
 		this.easingFunction              = k => k;
@@ -94,6 +95,7 @@ export default class {
 		}
 
 		this.#valuesEnd = properties;
+		this.#valuesEndEntries.length = 0;
 
 		return this;
 	}
@@ -131,7 +133,7 @@ export default class {
 		return this;
 	}
 
-	#startTween(time = RenderLoop.getTime()) {
+	startTween(time = RenderLoop.getTime()) {
 		const wasPlaying = this.isPlaying;
 
 		this.#elapsed = 0;
@@ -140,11 +142,12 @@ export default class {
 		this.isPlaying = true;
 		this.startTime = time + this.delayTime;
 
-		Object.keys(this.#valuesEnd).forEach(key => {
-			this.#valuesStart[key] = this.object[key];
-		});
-
-		this.#valuesEndEntries = Object.entries(this.#valuesEnd);
+		if (this.#valuesEndEntries.length === 0) {
+			Object.keys(this.#valuesEnd).forEach(key => {
+				this.#valuesStart[key] = this.object[key];
+				this.#valuesEndEntries.push(key, this.#valuesEnd[key]);
+			});
+		}
 
 		if (this.durationMS === 0 && this.#loopNum === 0 && this.delayTime === 0) {
 			// trigger immediately and be done with it
@@ -170,7 +173,7 @@ export default class {
 				resolve(this);
 			};
 
-			this.#startTween(...args);
+			this.startTween(...args);
 		});
 	}
 
@@ -270,7 +273,9 @@ export default class {
 			return;
 		}
 
-		this.#valuesEndEntries.forEach(this.#updateValue, this);
+		for (let i = 0; i < this.#valuesEndEntries.length; i += 2) {
+			this.#updateValue(this.#valuesEndEntries[i], this.#valuesEndEntries[i + 1]);
+		}
 
 		if (this.#onUpdateCallback !== null) {
 			this.#onUpdateCallback(this.object, this.value, delta);
@@ -285,7 +290,7 @@ export default class {
 		return this;
 	}
 
-	#updateValue([key, value]) {
+	#updateValue(key, value) {
 		const start = this.#valuesStart[key];
 
 		this.object[key] = start + (value - start) * this.value;
