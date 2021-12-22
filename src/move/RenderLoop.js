@@ -84,8 +84,6 @@ export default class RenderLoop {
 		if (callback) {
 			callback();
 		}
-
-		this.trigger();
 	}
 
 	static add(context, funk, cleanUp) {
