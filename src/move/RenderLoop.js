@@ -29,22 +29,6 @@ export default class RenderLoop {
 		this.#animate();
 	}
 
-	static #tick(callback) {
-		if (callback.isPlaying) {
-			const isDirty = callback.funk.call(callback.context, this.#ms);
-
-			if (isDirty) {
-				this.#dirtyCallbacks++;
-			}
-		}
-	}
-
-	static #cleanUpFunk(callback) {
-		if (callback.isPlaying) {
-			callback.cleanUp.call(callback.context);
-		}
-	}
-
 	static #animate() {
 		const animationLoop = () => {
 			this.#time = this.#performance.now() - this.#pauseTime;
@@ -55,7 +39,17 @@ export default class RenderLoop {
 			this.#dirtyCallbacks = 0;
 
 			if (this.#isAnimating && !this.#onlyHasDelayedTweens) {
-				this.#callbacks.forEach(this.#tick, this);
+				for (let i = 0; i < this.#callbacks.length; i++) {
+					const callback = this.#callbacks[i];
+
+					if (callback.isPlaying) {
+						const isDirty = callback.funk.call(callback.context, this.#ms);
+
+						if (isDirty) {
+							this.#dirtyCallbacks++;
+						}
+					}
+				}
 			}
 
 			if (this.#isAnimating && (this.#dirtyCallbacks > 0 || hasTweens)) {
@@ -66,7 +60,13 @@ export default class RenderLoop {
 			}
 
 			if (!this.#onlyHasDelayedTweens) {
-				this.#cleanUps.forEach(RenderLoop.#cleanUpFunk, this);
+				for (let i = 0; i < this.#cleanUps.length; i++) {
+					const callback = this.#cleanUps[i];
+
+					if (callback.isPlaying) {
+						callback.cleanUp.call(callback.context);
+					}
+				}
 			}
 
 			this.#onlyHasDelayedTweens = this.#dirtyCallbacks === 0 && TweenManager.onlyHasDelayedTweens(this.#time);
