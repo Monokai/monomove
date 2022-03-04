@@ -29,7 +29,6 @@ export default class BezierEasing {
 		this.setCacheSize(this.#cacheSize);
 
 		if (typeof x1 === 'string') {
-			console.log(x1);
 			const p = x1.split(',');
 
 			x1 = Number(p[0]);
