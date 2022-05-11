@@ -229,10 +229,10 @@ smoothScroller.scrollToElement(document.getElementById('my-element'), 100, 3);
 ### Change opacity of multiple elements based on their individual position in the browser frame
 
 ```js
-smoothScroller.add([...document.getElementsByClassName('block')], {
+smoothScroller.add([...document.getElementsByClassName('block')], ({
 	factor,
 	item
-} => {
+}) => {
 	item.style.opacity = 1 - ((factor - 0.5) * 2) ** 4;
 });
 ```
