@@ -1,6 +1,6 @@
-import clamp from '../math/clamp';
-import RenderLoop from './RenderLoop';
-import Tween from './Tween';
+import clamp from '../math/clamp.js';
+import RenderLoop from './RenderLoop.js';
+import Tween from './Tween.js';
 
 let supportsPassiveListeners = false;
 

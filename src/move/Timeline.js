@@ -1,5 +1,5 @@
-import AbstractTimeline from './AbstractTimeline';
-import clamp from '../math/clamp';
+import AbstractTimeline from './AbstractTimeline.js';
+import clamp from '../math/clamp.js';
 
 export default class Timeline extends AbstractTimeline {
 

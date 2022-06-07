@@ -1,12 +1,16 @@
 {
   "name": "monomove",
-  "version": "1.0.42",
+  "version": "1.1.0",
   "description": "utilities for moving things on screen",
+  "type": "module",
   "main": "dist/monomove.js",
-  "module": "src/index.js",
+  "exports": {
+    "import": "./dist/monomove.mjs",
+    "require": "./dist/monomove.js",
+    "./module": "./src/index.js"
+  },
   "browserslist": [
-    "> 1%",
-    "last 2 versions"
+    ">1%, last 2 versions and > 0.05%, not dead, not ie 11"
   ],
   "scripts": {
     "build": "webpack --mode development --progress",
@@ -21,16 +25,17 @@
   "author": "Monokai",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.16.0",
-    "@babel/eslint-parser": "^7.16.3",
-    "@babel/plugin-proposal-class-properties": "^7.16.0",
-    "@babel/preset-env": "^7.16.4",
-    "babel-loader": "^8.2.3",
-    "core-js": "^3.19.1",
-    "eslint": "^8.3.0",
-    "eslint-config-airbnb": "^19.0.1",
-    "eslint-plugin-import": "^2.25.3",
-    "webpack": "^5.64.3",
-    "webpack-cli": "^4.9.1"
+    "@babel/core": "^7.18.2",
+    "@babel/eslint-parser": "^7.18.2",
+    "@babel/plugin-proposal-class-properties": "^7.17.12",
+    "@babel/preset-env": "^7.18.2",
+    "babel-loader": "^8.2.5",
+    "core-js": "^3.22.8",
+    "eslint": "^8.17.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-plugin-import": "^2.26.0",
+    "terser-webpack-plugin": "^5.3.3",
+    "webpack": "^5.73.0",
+    "webpack-cli": "^4.9.2"
   }
 }

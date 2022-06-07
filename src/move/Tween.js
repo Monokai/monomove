@@ -1,5 +1,5 @@
-import RenderLoop from './RenderLoop';
-import TweenManager from './TweenManager';
+import RenderLoop from './RenderLoop.js';
+import TweenManager from './TweenManager.js';
 
 export default class {
 

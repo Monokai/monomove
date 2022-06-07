@@ -1,4 +1,4 @@
-import BezierEasing from '../math/BezierEasing';
+import BezierEasing from '../math/BezierEasing.js';
 
 export default class {
 

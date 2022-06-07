@@ -1,5 +1,5 @@
-import './RAF';
-import TweenManager from './TweenManager';
+import './RAF.js';
+import TweenManager from './TweenManager.js';
 
 export default class RenderLoop {
 
