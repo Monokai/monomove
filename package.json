@@ -3,6 +3,7 @@
   "version": "1.1.1",
   "description": "utilities for moving things on screen",
   "type": "module",
+  "sideEffects": false,
   "main": "dist/monomove.js",
   "exports": {
     ".": {
