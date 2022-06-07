@@ -39,7 +39,7 @@ const config = {
 			terserOptions: {
 				compress: {
 					drop_console: true,
-					passes      : 2
+					passes: 2
 				}
 			}
 		})]
