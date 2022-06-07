@@ -40,7 +40,7 @@ module.exports = {
 			parallel     : true,
 			terserOptions: {
 				compress: {
-					drop_console: false,
+					drop_console: true,
 					passes      : 2
 				}
 			}
