@@ -1,12 +1,14 @@
 {
   "name": "monomove",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "utilities for moving things on screen",
   "type": "module",
   "main": "dist/monomove.js",
   "exports": {
-    "import": "./dist/monomove.mjs",
-    "require": "./dist/monomove.js",
+    ".": {
+      "import": "./dist/monomove.mjs",
+      "require": "./dist/monomove.js"
+    },
     "./module": "./src/index.js"
   },
   "browserslist": [
