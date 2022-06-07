@@ -1,6 +1,6 @@
 {
   "name": "monomove",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "utilities for moving things on screen",
   "type": "module",
   "sideEffects": false,
