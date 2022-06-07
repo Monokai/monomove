@@ -168,8 +168,11 @@ export default class SmoothScroller {
 		if (Math.abs(dy) < this.#scrollThreshold) {
 			console.log('stop scrolling', this.scroll);
 
-			// trigger final animations on slow devices that can't keep up with intersection observers
-			this.#onScroll(this.scroll);
+			// trigger final animations on slow touch devices that can't keep up with intersection observers
+			if (this.#isTouch) {
+				console.log('trigger all animations');
+				this.triggerAnimations(true);
+			}
 
 			this.#isAnimating = false;
 		}
