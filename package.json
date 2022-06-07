@@ -1,6 +1,6 @@
 {
   "name": "monomove",
-  "version": "1.0.38",
+  "version": "1.0.39",
   "description": "utilities for moving things on screen",
   "main": "dist/monomove.js",
   "module": "src/index.js",
@@ -15,7 +15,8 @@
   "keywords": [
     "move",
     "tween",
-    "scroll"
+    "scroll",
+    "smooth"
   ],
   "author": "Monokai",
   "license": "ISC",
