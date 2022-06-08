@@ -1,23 +1,23 @@
 {
   "name": "monomove",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "utilities for moving things on screen",
   "type": "module",
   "sideEffects": false,
-  "main": "dist/monomove.js",
+  "main": "./dist/umd/index.js",
   "exports": {
     ".": {
-      "import": "./dist/monomove.mjs",
-      "require": "./dist/monomove.js"
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
     },
-    "./module": "./src/index.js"
+    "./source": "./src/index.js"
   },
   "browserslist": [
     ">1%, last 2 versions and > 0.05%, not dead, not ie 11"
   ],
   "scripts": {
-    "build": "webpack --mode development --progress",
-    "build:production": "webpack --mode production --progress"
+    "build": "rollup -c",
+    "build:production": "rollup -c --environment BUILD:production"
   },
   "keywords": [
     "move",
@@ -28,17 +28,11 @@
   "author": "Monokai",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.18.2",
-    "@babel/eslint-parser": "^7.18.2",
-    "@babel/plugin-proposal-class-properties": "^7.17.12",
     "@babel/preset-env": "^7.18.2",
-    "babel-loader": "^8.2.5",
-    "core-js": "^3.22.8",
-    "eslint": "^8.17.0",
-    "eslint-config-airbnb": "^19.0.4",
-    "eslint-plugin-import": "^2.26.0",
-    "terser-webpack-plugin": "^5.3.3",
-    "webpack": "^5.73.0",
-    "webpack-cli": "^4.9.2"
+    "rollup": "^2.75.6",
+    "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-delete": "^2.0.0",
+    "rollup-plugin-terser": "^7.0.2"
   }
 }

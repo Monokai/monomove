@@ -437,7 +437,7 @@ export default class SmoothScroller {
 	remove(_items) {
 		const items = _items && _items instanceof Array ? _items : [_items];
 
-		this.#animations = this.#animations.filter(a => !items.includes(a.item));
+		this.#animations = this.#animations.filter(a => items.indexOf(a.item) < 0);
 	}
 
 	static getBox(node) {
