@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "utilities for moving things on screen",
   "type": "module",
   "sideEffects": false,
@@ -30,7 +30,7 @@
     "smooth"
   ],
   "author": "Monokai",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@babel/preset-env": "^7.18.2",
     "rollup": "^2.75.6",
