@@ -1,23 +1,57 @@
 # Monomove
 ## Utilities for moving things on screen
 
-I've been consistently using some form of these tools over the years to add transitions and animations to web apps. Its aim is to be a minimal toolkit for adding interaction and movement to web apps.
+The aim of Monomove is to be a minimal toolkit for adding interaction and movement to web apps. It consists of a couple of components:
 
-It consists of a couple of components:
+- `Tween` (animation tweening)
+- `TweenManager` (manages the tweens)
+- `delay` (simple utility)
+- `Timeline` (a timeline of parallel tweens)
+- `TweenChain` (a chain of consecutive tweens)
+- `RenderLoop` (manages rendering via `requestAnimationFrame`)
+- `SmoothScroller` (listen to DOM element scroll positions via `IntersectionObserver`)
 
-- Tween (animation tweening)
-- TweenManager (manages the tweens)
-- RenderLoop (manages rendering via `requestAnimationFrame`)
-- delay (simple utility)
-- SmoothScroller (reacts on scrolling events)
-
-## Install
+### Install
 
 ```sh
-npm install --save-dev monomove
+npm install --save @monokai/monomove
 ```
 
+### Usage
 
+#### ESM
+
+The recommended way to use Monomove is via esm style modules. This way of importing supports tree-shaking and keeps your packages small.
+
+```js
+import {Tween} from '@monokai/monomove';
+```
+
+#### CommonJS
+
+You can also use commonjs style modules (`const {Tween} = require('monomove')`) but then you'll lose the tree shaking part.
+
+```js
+const {Tween} = require('@monokai/monomove');
+```
+
+#### UMD
+
+You can directly link to Monomove via a script tag or `require` the umd version and it will globally create a `monomove` object from which you can use the modules.
+
+```js
+require('@monokai/monomove/umd');
+
+const {SmoothScroller} = window.monomove;
+```
+
+#### From source
+
+Alternatively, you can directly import from the source files in your project. The source files are not transpiled and potentially use some JavaScript syntax that's not cross-browser compatible.
+
+```js
+import {Tween} from 'monomove/source';
+```
 
 ## Tween
 
@@ -26,7 +60,7 @@ A minimal animation tweening utility.
 ### Importing it:
 
 ```js
-import {Tween} from 'monomove';
+import {Tween} from '@monokai/monomove';
 ```
 
 ### Using it
@@ -35,7 +69,7 @@ Simple animation, tweening the opacity:
 
 ```js
 const element = document.getElementById('my-id');
-const duration = 0.2 // seconds
+const duration = 0.2; // seconds
 
 await new Tween(({value}) => {
 	element.style.opacity = value;
@@ -64,7 +98,7 @@ await new Tween({
 		x: 100,
 		y: 200
 	})
-	.onUpdate({x, y} => {
+	.onUpdate(({x, y}) => {
 		element.style.transform = `translate3d(${x * 100}px, ${y * 100}px, 0)`;
 	})
 	.start();
@@ -79,12 +113,12 @@ Adding tweens together and create a single timeline
 ### Importing it:
 
 ```js
-import {Timeline} from 'monomove';
+import {Timeline} from '@monokai/monomove';
 ```
 
 ### Using it
 
-A timeline is a collection of parallel playing tweens that you can control with a normalized position (between 0 and 1, inclusive).
+A timeline is a collection of tweens playing in parallel that you can control with a normalized position (between 0 and 1, inclusive).
 
 Create a timeline of two tweens and jump to 50% of the timeline:
 
@@ -104,7 +138,7 @@ timeline.setPosition(0.5);
 
 
 ```js
-import {TweenChain} from 'monomove';
+import {TweenChain} from '@monokai/monomove';
 ```
 
 ### Using it
@@ -133,7 +167,7 @@ tweenChain.setPosition(0.5);
 ### Importing it:
 
 ```js
-import {TweenManager} from 'monomove';
+import {TweenManager} from '@monokai/monomove';
 ```
 
 The tween manager takes care of running and cleaning up tween instances. Whenever you want to immediately delete tweens, you can use this class
@@ -151,7 +185,7 @@ TweenManager.removeAll();
 ### Importing it:
 
 ```js
-import {RenderLoop} from 'monomove';
+import {RenderLoop} from '@monokai/monomove';
 ```
 
 The main responsibility of the render loop is to keep track of the time and triggering the tweens on each drawing frame of the browser. 
@@ -185,7 +219,7 @@ RenderLoop.remove(this);
 ### Importing it:
 
 ```js
-import {delay} from 'monomove';
+import {delay} from '@monokai/monomove';
 ```
 
 A simple utility to wait a bit without relying on `setTimeout`;
@@ -205,7 +239,7 @@ The Smooth Scroller lets you control DOM elements based on the scroll position i
 ### Importing it:
 
 ```js
-import {SmoothScroller} from 'monomove';
+import {SmoothScroller} from '@monokai/monomove';
 ```
 
 ### Using it
