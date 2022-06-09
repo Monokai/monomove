@@ -1,5 +1,5 @@
 # Monomove
-## Utilities for moving things on screen
+## Utilities for moving things
 
 The aim of Monomove is to be a minimal toolkit for adding interaction and movement to web apps. It consists of a couple of components:
 
