@@ -1,7 +1,11 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "utilities for moving things on screen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monokai/monomove.git"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./dist/umd/index.js",
