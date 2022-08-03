@@ -49,6 +49,7 @@ export default class SmoothScroller {
 		.easing('0.35,0.15,0,1')
 		.onUpdate(o => {
 			window.scrollTo(0, o.y);
+
 			this.#isAnimating = true;
 			this.scroll = o.y;
 			this.#targetScroll = o.y;
@@ -68,19 +69,22 @@ export default class SmoothScroller {
 	#content = null;
 	#listener = null;
 	#debug = null;
+	#onResizeFunk = null;
 
 	constructor({
 		container = window.document.body,
 		content = window.document.body,
 		scrollFactor = 1,
 		listener = window,
-		debug = false
+		debug = false,
+		onResize
 	} = {}) {
 		this.#scrollFactor = scrollFactor;
 		this.#container = container;
 		this.#content = content;
 		this.#listener = listener;
 		this.#debug = debug;
+		this.#onResizeFunk = onResize;
 
 		this.#touchStartListener = () => {
 			if (this.isLocked) {
@@ -260,6 +264,10 @@ export default class SmoothScroller {
 			this.#debugCanvas.style.zIndex = 9999999;
 
 			this.#debugContext = this.#debugCanvas.getContext('2d');
+		}
+
+		if (this.#onResizeFunk) {
+			this.#onResizeFunk();
 		}
 
 		this.#updateActiveAnimations();
