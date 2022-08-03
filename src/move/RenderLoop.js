@@ -5,32 +5,19 @@ export default class RenderLoop {
 	static #callbacks = [];
 	static #cleanUps = [];
 	static #dirtyCallbacks = 0;
-	static #isAnimating = true;
+	static #isAnimating = false;
 	static #ms = 0;
 	static #pauseTime = 0;
 	static #pauseTimeStart = 0;
 	static #previousTime = 0;
-	static #requestAnimation = true;
+	static #requestAnimation = false;
 	static #requestID = 0;
 	static #time = 0;
 	static #onlyHasDelayedTweens = false;
-	static #performance = window.performance;
-
-	static staticConstructor() {
-		if (!this.#performance?.now) {
-			const offset = this.#performance.timing && this.#performance.timing.navigationStart ? this.#performance.timing.navigationStart : Date.now();
-
-			this.#performance.now = function now() {
-				return Date.now() - offset;
-			};
-		}
-
-		this.#animate();
-	}
 
 	static #animate() {
 		const animationLoop = () => {
-			this.#time = this.#performance.now() - this.#pauseTime;
+			this.#time = window.performance.now() - this.#pauseTime;
 			this.#ms = this.#previousTime ? this.#time - this.#previousTime : 0;
 
 			const hasTweens = TweenManager.onTick(this.#time);
@@ -130,7 +117,7 @@ export default class RenderLoop {
 	}
 
 	static getTime() {
-		this.#time = this.#performance.now() - this.#pauseTime;
+		this.#time = window.performance.now() - this.#pauseTime;
 
 		return this.#time;
 	}
@@ -140,7 +127,7 @@ export default class RenderLoop {
 			return;
 		}
 
-		this.#pauseTimeStart = this.#performance.now();
+		this.#pauseTimeStart = window.performance.now();
 		this.#requestAnimation = false;
 
 		this.stop();
@@ -151,7 +138,7 @@ export default class RenderLoop {
 			return;
 		}
 
-		this.#pauseTime += this.#performance.now() - this.#pauseTimeStart;
+		this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
 
 		this.#isAnimating = true;
 
@@ -163,5 +150,3 @@ export default class RenderLoop {
 	}
 
 }
-
-RenderLoop.staticConstructor();
