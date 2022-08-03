@@ -139,6 +139,7 @@ export default class SmoothScroller {
 		}
 
 		RenderLoop.add(this, this.#onTick);
+		RenderLoop.play();
 
 		this.resize();
 	}
