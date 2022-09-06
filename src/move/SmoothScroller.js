@@ -100,7 +100,7 @@ export default class SmoothScroller {
 			}
 
 			this.#isAnimating = true;
-			this.#targetScroll = this.getScrollPosition();
+			this.#targetScroll = clamp(this.getScrollPosition(), 0, Math.round(this.scrollHeight - this.#height));
 		};
 
 		this.#mouseDownListener = e => {

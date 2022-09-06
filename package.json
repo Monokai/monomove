@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "utilities for moving things on screen",
   "repository": {
     "type": "git",
@@ -25,7 +25,8 @@
   ],
   "scripts": {
     "build": "rollup -c",
-    "build:production": "rollup -c --environment BUILD:production"
+    "build:production": "rollup -c --environment BUILD:production",
+    "watch": "rollup src/index.js --format umd --name monomove --watch --output.file=dist/umd/index.js"
   },
   "keywords": [
     "move",

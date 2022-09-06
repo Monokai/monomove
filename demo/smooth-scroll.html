@@ -1,0 +1,149 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>monomove - smooth scroll example</title>
+		<script src="../dist/umd/index.js"></script>
+	</head>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: sans-serif;
+		}
+
+		.wrapper {
+			background-color: #ccc;
+		}
+
+		.content {
+			width: 100vw;
+			min-height: 100vh;
+			left: 0;
+			top: 0;
+			position: fixed;
+		}
+
+		.block {
+			width: 100%;
+			height: 75vw;
+			min-height: 75vh;
+			background-color: #aaa;
+			margin-bottom: 4rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-size: 25vw;
+		}
+
+		.canvas {
+			background: #fff;
+			width: 512px;
+			height: 256px;
+			position: fixed;
+			bottom: 0;
+			right: 0;
+		}
+	</style>
+	<body>
+		<div class="wrapper">
+			<div class="content">
+				<div class="block">1</div>
+				<div class="block">2</div>
+				<div class="block">3</div>
+				<div class="block">4</div>
+				<div class="block">5</div>
+				<div class="block">6</div>
+				<div class="block">7</div>
+				<div class="block">8</div>
+				<div class="block">9</div>
+				<div class="block">10</div>
+			</div>
+		</div>
+
+		<!-- <canvas class="canvas" width="1024" height="512" /> -->
+
+		<script>
+			const {SmoothScroller} = window.monomove;
+
+			const wrapper = document.querySelectorAll('.wrapper')[0];
+			const content = document.querySelectorAll('.content')[0];
+
+			let smoothScroller;
+
+			smoothScroller = new SmoothScroller({
+				scrollFactor: 0.15,
+				listener: window,
+				container: wrapper,
+				content: content,
+				debug: true,
+				onResize: () => {
+					wrapper.style.height = `${smoothScroller?.scrollHeight}px`;
+					console.log(wrapper.style.height)
+				}
+			});
+
+			smoothScroller.add(content, ({scroll}) => {
+				content.style.transform = `translate3d(0, ${-Math.round(scroll)}px, 0)`;
+			});
+
+			// const canvas = document.querySelectorAll('.canvas')[0];
+			// const context = canvas.getContext('2d');
+			// const w = canvas.width;
+			// const h = canvas.height;
+
+			// let prevTime = new Date();
+			// let prevScroll = smoothScroller.scroll;
+
+			// const points = new Array();
+
+			// points.push([0, 0]);
+
+			// function scaleY(y) {
+			// 	return (y + max) / (2 * max) * h;
+			// }
+
+			// function animate() {
+			// 	const time = new Date();
+			// 	const scroll = smoothScroller.scroll;
+			// 	const deltaScroll = scroll - prevScroll;
+			// 	const deltaTime = time - prevTime;
+
+			// 	if (points.length > w) {
+			// 		points.shift();
+			// 	}
+
+			// 	points.push([deltaTime / 8, deltaScroll]);
+
+			// 	max = Math.max(...points.map(p => Math.abs(p[1])));
+
+			// 	context.clearRect(0, 0, w, h);
+			// 	context.beginPath();
+			// 	context.lineWidth = 2;
+
+			// 	let x = w;
+
+			// 	for (let i = points.length - 1; i >= 0; i--) {
+			// 		const p = points[i];
+
+			// 		x -= p[0];
+
+			// 		if (i === 0) {
+			// 			context.moveTo(x, scaleY(p[1]))
+			// 		} else {
+			// 			context.lineTo(x, scaleY(p[1]));
+			// 		}
+			// 	}
+
+			// 	context.closePath();
+			// 	context.stroke();
+
+			// 	prevTime = time;
+			// 	prevScroll = scroll;
+
+			// 	window.requestAnimationFrame(animate);
+			// }
+
+			// window.requestAnimationFrame(animate);
+		</script>
+	</body>
+</html>
