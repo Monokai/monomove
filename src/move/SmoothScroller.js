@@ -540,6 +540,14 @@ export default class SmoothScroller {
 		this.#content = null;
 	}
 
+	setScrollFactor(factor) {
+		this.#scrollFactor = factor;
+	}
+
+	setTouchScrollFactor(factor) {
+		this.#touchScrollFactor = factor;
+	}
+
 	destroy() {
 		if (this.#debug) {
 			this.#debugCanvas.remove();
