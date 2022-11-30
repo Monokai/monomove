@@ -92,7 +92,9 @@ export default class TweenChain extends AbstractTimeline {
 	}
 
 	async start() {
-		this.tweens.forEach(tween => tween.start());
+		const tween = new Tween(({value}) => this.setPosition(value), this.totalTime);
+
+		await tween.start();
 	}
 
 }

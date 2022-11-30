@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "utilities for moving things on screen",
   "repository": {
     "type": "git",
