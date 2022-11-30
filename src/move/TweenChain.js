@@ -1,4 +1,5 @@
 import AbstractTimeline from './AbstractTimeline.js';
+import Tween from './Tween.js';
 import clamp from '../math/clamp.js';
 
 export default class TweenChain extends AbstractTimeline {
