@@ -1,3 +1,5 @@
+import Tween from './Tween.js';
+
 export default class AbstractTimeline {
 
 	previousPosition = null;
@@ -36,6 +38,12 @@ export default class AbstractTimeline {
 
 			tween.previousTimelineVisible = tween.timelineVisible;
 		}
+	}
+
+	async start() {
+		const tween = new Tween(({value}) => this.setPosition(value), this.totalTime / 1000);
+
+		await tween.start();
 	}
 
 }

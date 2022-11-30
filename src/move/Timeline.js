@@ -7,7 +7,7 @@ export default class Timeline extends AbstractTimeline {
 		super(options);
 
 		this.tweens = tweens.reduce((a, o) => this.addTween(a, o, this.delay), []).sort((a, b) => a.delayTime - b.delayTime);
-		this.totalTime = this.tweens.reduce((total, tween) => Math.max(total, tween.delayTime + tween.durationMS), 0);
+		this.totalTime = this.tweens.reduce((total, tween) => Math.max(total, tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
 	addTween(a, o, delay = 0) {
@@ -31,43 +31,66 @@ export default class Timeline extends AbstractTimeline {
 		for (let i = this.tweens.length - 1; i >= 0; i--) {
 			const tween = this.tweens[i];
 
-			if (tween.delayTime > time) {
-				tween.value = 0;
-
-				Timeline.setTweenVisibility(tween, false);
-				Timeline.setTweenIn(tween, false);
-
-				tween.invalidate();
-				tween.updateAllValues();
+			if (tween.totalTime !== undefined) {
+				if (tween.delay * 1000 > time) {
+					tween.setPosition(0);
+				}
 			} else {
-				break;
+				if (tween.delayTime > time) {
+					tween.value = 0;
+
+					Timeline.setTweenVisibility(tween, false);
+					Timeline.setTweenIn(tween, false);
+
+					tween.invalidate();
+					tween.updateAllValues();
+				} else {
+					break;
+				}
 			}
 		}
 
 		for (let i = 0; i < this.tweens.length; i++) {
 			const tween = this.tweens[i];
-			const tweenDuration = tween.durationMS;
-			const tweenTime = tween.delayTime + tweenDuration;
-			const tweenStartTime = tween.delayTime;
 
-			if (tweenTime <= time) {
-				tween.value = 1;
+			if (tween.totalTime !== undefined) {
+				const tweenDuration = tween.totalTime;
+				const tweenTime = tween.delay * 1000 + tweenDuration;
+				const tweenStartTime = t + tween.delay * 1000;
 
-				Timeline.setTweenVisibility(tween, true);
-				Timeline.setTweenIn(tween, false);
-			} else if (tweenStartTime <= time) {
-				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
+				if (tweenTime <= time) {
+					tween.setPosition(1);
+				} else if (tweenStartTime <= time) {
+					const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
-				tween.value = tween.easingFunction(normalized);
-
-				Timeline.setTweenVisibility(tween, true);
-				Timeline.setTweenIn(tween, true);
+					tween.setPosition(normalized);
+				} else {
+					break;
+				}
 			} else {
-				break;
-			}
+				const tweenDuration = tween.durationMS;
+				const tweenTime = tween.delayTime + tweenDuration;
+				const tweenStartTime = tween.delayTime;
 
-			tween.invalidate();
-			tween.updateAllValues();
+				if (tweenTime <= time) {
+					tween.value = 1;
+
+					Timeline.setTweenVisibility(tween, true);
+					Timeline.setTweenIn(tween, false);
+				} else if (tweenStartTime <= time) {
+					const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
+
+					tween.value = tween.easingFunction(normalized);
+
+					Timeline.setTweenVisibility(tween, true);
+					Timeline.setTweenIn(tween, true);
+				} else {
+					break;
+				}
+
+				tween.invalidate();
+				tween.updateAllValues();
+			}
 		}
 
 		this.previousPosition = position;
@@ -75,10 +98,6 @@ export default class Timeline extends AbstractTimeline {
 
 	update() {
 		this.setPosition(this.previousPosition || 0);
-	}
-
-	async start() {
-		await Promise.all(this.tweens.map(tween => tween.start()));
 	}
 
 }

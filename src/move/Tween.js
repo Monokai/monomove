@@ -42,12 +42,21 @@ export default class {
 			};
 
 			this.durationMS = duration * 1000;
+
+			this.#valuesStart = {
+				value: 0
+			};
+
+			this.#valuesEndEntries = ['value', this.#valuesEnd['value']];
 		} else {
 			// normal initialization
 			this.object = object;
 			this.#valuesEnd = {};
 			this.#onUpdateCallback = null;
 			this.durationMS = 1000;
+
+			this.#valuesStart = {};
+			this.#valuesEndEntries = [];
 		}
 
 		this.#loopNum                     = 0;
@@ -62,8 +71,6 @@ export default class {
 		this.#onTimelineInvisibleCallback = null;
 		this.#previousTime                = null;
 		this.#elapsed                     = 0;
-		this.#valuesStart                 = {};
-		this.#valuesEndEntries            = [];
 		this.#previousUpdateValue         = null;
 
 		this.easingFunction              = k => k;

@@ -1,5 +1,4 @@
 import AbstractTimeline from './AbstractTimeline.js';
-import Tween from './Tween.js';
 import clamp from '../math/clamp.js';
 
 export default class TweenChain extends AbstractTimeline {
@@ -8,7 +7,7 @@ export default class TweenChain extends AbstractTimeline {
 		super(options);
 
 		this.tweens = tweens.reduce((a, o, i) => this.addTween(a, o, i === 0 ? this.delay : 0), []);
-		this.totalTime = this.tweens.reduce((total, tween) => total + tween.delayTime + tween.durationMS, 0);
+		this.totalTime = this.tweens.reduce((total, tween) => total + (tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
 	addTween(a, o, delay = 0) {
@@ -37,23 +36,37 @@ export default class TweenChain extends AbstractTimeline {
 		// reset all tweens that start later than position
 		for (let i = this.tweens.length - 1; i >= 0; i--) {
 			const tween = this.tweens[i];
-			const tweenDuration = tween.durationMS;
-			const tweenTime = tween.delayTime + tweenDuration;
 
-			t -= tweenTime;
+			if (tween.totalTime !== undefined) {
+				const tweenDuration = tween.totalTime;
+				const tweenTime = tween.delay * 1000 + tweenDuration;
 
-			const tweenStartTime = t + tween.delayTime;
+				t -= tweenTime;
 
-			if (tweenStartTime > time) {
-				tween.value = 0;
+				const tweenStartTime = t + tween.delay * 1000;
 
-				TweenChain.setTweenVisibility(tween, false);
-				TweenChain.setTweenIn(tween, false);
-
-				tween.invalidate();
-				tween.updateAllValues();
+				if (tweenStartTime > time) {
+					tween.setPosition(0);
+				}
 			} else {
-				break;
+				const tweenDuration = tween.durationMS;
+				const tweenTime = tween.delayTime + tweenDuration;
+
+				t -= tweenTime;
+
+				const tweenStartTime = t + tween.delayTime;
+
+				if (tweenStartTime > time) {
+					tween.value = 0;
+
+					TweenChain.setTweenVisibility(tween, false);
+					TweenChain.setTweenIn(tween, false);
+
+					tween.invalidate();
+					tween.updateAllValues();
+				} else {
+					break;
+				}
 			}
 		}
 
@@ -61,41 +74,53 @@ export default class TweenChain extends AbstractTimeline {
 
 		for (let i = 0; i < this.tweens.length; i++) {
 			const tween = this.tweens[i];
-			const tweenDuration = tween.durationMS;
-			const tweenTime = tween.delayTime + tweenDuration;
-			const tweenStartTime = t + tween.delayTime;
 
-			t += tweenTime;
+			if (tween.totalTime !== undefined) {
+				const tweenDuration = tween.totalTime;
+				const tweenTime = tween.delay * 1000 + tweenDuration;
+				const tweenStartTime = t + tween.delay * 1000;
 
-			if (t <= time) {
-				tween.value = 1;
+				t += tweenTime;
 
-				TweenChain.setTweenVisibility(tween, true);
-				TweenChain.setTweenIn(tween, false);
-			} else if (tweenStartTime <= time) {
-				const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
+				if (t <= time) {
+					tween.setPosition(1);
+				} else if (tweenStartTime <= time) {
+					const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
 
-				tween.value = tween.easingFunction(normalized);
-
-				TweenChain.setTweenVisibility(tween, true);
-				TweenChain.setTweenIn(tween, true);
+					tween.setPosition(normalized);
+				} else {
+					break;
+				}
 			} else {
-				break;
-			}
+				const tweenDuration = tween.durationMS;
+				const tweenTime = tween.delayTime + tweenDuration;
+				const tweenStartTime = t + tween.delayTime;
 
-			tween.invalidate();
-			tween.updateAllValues();
+				t += tweenTime;
+
+				if (t <= time) {
+					tween.value = 1;
+
+					TweenChain.setTweenVisibility(tween, true);
+					TweenChain.setTweenIn(tween, false);
+				} else if (tweenStartTime <= time) {
+					const normalized = clamp((time - tweenStartTime) / tweenDuration, 0, 1);
+
+					tween.value = tween.easingFunction(normalized);
+
+					TweenChain.setTweenVisibility(tween, true);
+					TweenChain.setTweenIn(tween, true);
+				} else {
+					break;
+				}
+
+				tween.invalidate();
+				tween.updateAllValues();
+			}
 		}
 	}
 
 	update() {
 		this.setPosition(this.previousPosition || 0);
 	}
-
-	async start() {
-		const tween = new Tween(({value}) => this.setPosition(value), this.totalTime);
-
-		await tween.start();
-	}
-
 }
