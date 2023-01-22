@@ -177,6 +177,9 @@ export default class {
 					onComplete();
 				}
 
+				// reset to original value
+				this.#onCompleteCallback = onComplete;
+
 				resolve(this);
 			};
 
