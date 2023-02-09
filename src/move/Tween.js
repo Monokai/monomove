@@ -10,6 +10,10 @@ export default class {
 	easingFunction = null;
 	object = null;
 	value = null;
+	onTimelineInCallback = null;
+	onTimelineOutCallback = null;
+	onTimelineVisibleCallback = null;
+	onTimelineInvisibleCallback = null;
 
 	#onUpdateCallback;
 	#valuesEnd;
@@ -20,10 +24,6 @@ export default class {
 	#onCompleteCallback;
 	#onStartCallback;
 	#onStartCallbackFired;
-	#onTimelineInCallback;
-	#onTimelineOutCallback;
-	#onTimelineVisibleCallback;
-	#onTimelineInvisibleCallback;
 	#previousTime;
 	#elapsed;
 	#valuesStart;
@@ -65,10 +65,10 @@ export default class {
 		this.#onCompleteCallback          = null;
 		this.#onStartCallback             = null;
 		this.#onStartCallbackFired        = false;
-		this.#onTimelineInCallback        = null;
-		this.#onTimelineOutCallback       = null;
-		this.#onTimelineVisibleCallback   = null;
-		this.#onTimelineInvisibleCallback = null;
+		this.onTimelineInCallback        = null;
+		this.onTimelineOutCallback       = null;
+		this.onTimelineVisibleCallback   = null;
+		this.onTimelineInvisibleCallback = null;
 		this.#previousTime                = null;
 		this.#elapsed                     = 0;
 		this.#previousUpdateValue         = null;
@@ -255,25 +255,25 @@ export default class {
 	}
 
 	onTimelineIn(callback) {
-		this.#onTimelineInCallback = callback;
+		this.onTimelineInCallback = callback;
 
 		return this;
 	}
 
 	onTimelineOut(callback) {
-		this.#onTimelineOutCallback = callback;
+		this.onTimelineOutCallback = callback;
 
 		return this;
 	}
 
 	onTimelineVisible(callback) {
-		this.#onTimelineVisibleCallback = callback;
+		this.onTimelineVisibleCallback = callback;
 
 		return this;
 	}
 
 	onTimelineInvisible(callback) {
-		this.#onTimelineInvisibleCallback = callback;
+		this.onTimelineInvisibleCallback = callback;
 
 		return this;
 	}
