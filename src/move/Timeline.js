@@ -6,13 +6,13 @@ export default class Timeline extends AbstractTimeline {
 	constructor(tweens, options) {
 		super(options);
 
-		this.tweens = tweens.reduce((a, o) => this.addTween(a, o, this.delay), []).sort((a, b) => a.delayTime - b.delayTime);
+		this.tweens = tweens.reduce((a, o) => this.#addTween(a, o, this.delay), []).sort((a, b) => a.delayTime - b.delayTime);
 		this.totalTime = this.tweens.reduce((total, tween) => Math.max(total, tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
-	addTween(a, o, delay = 0) {
+	#addTween(a, o, delay = 0) {
 		if (o instanceof this.constructor) {
-			o.tweens.forEach(b => this.addTween(a, b, delay + o.delay));
+			o.tweens.forEach(b => this.#addTween(a, b, delay + o.delay));
 		} else {
 			if (delay) {
 				o.delayTime += delay * 1000;
@@ -35,18 +35,16 @@ export default class Timeline extends AbstractTimeline {
 				if (tween.delay * 1000 > time) {
 					tween.setPosition(0);
 				}
+			} else if (tween.delayTime > time) {
+				tween.value = 0;
+
+				Timeline.setTweenVisibility(tween, false);
+				Timeline.setTweenIn(tween, false);
+
+				tween.invalidate();
+				tween.updateAllValues();
 			} else {
-				if (tween.delayTime > time) {
-					tween.value = 0;
-
-					Timeline.setTweenVisibility(tween, false);
-					Timeline.setTweenIn(tween, false);
-
-					tween.invalidate();
-					tween.updateAllValues();
-				} else {
-					break;
-				}
+				break;
 			}
 		}
 
@@ -56,7 +54,7 @@ export default class Timeline extends AbstractTimeline {
 			if (tween.totalTime !== undefined) {
 				const tweenDuration = tween.totalTime;
 				const tweenTime = tween.delay * 1000 + tweenDuration;
-				const tweenStartTime = t + tween.delay * 1000;
+				const tweenStartTime = tween.delay * 1000;
 
 				if (tweenTime <= time) {
 					tween.setPosition(1);

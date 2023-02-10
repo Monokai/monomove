@@ -48,6 +48,9 @@
   "eslintConfig": {
     "extends": [
       "@clarifynl/clarify"
-    ]
+    ],
+    "rules": {
+      "import/extensions": 0
+    }
   }
 }

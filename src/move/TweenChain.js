@@ -6,16 +6,16 @@ export default class TweenChain extends AbstractTimeline {
 	constructor(tweens, options) {
 		super(options);
 
-		this.tweens = tweens.reduce((a, o, i) => this.addTween(a, o, i === 0 ? this.delay : 0), []);
+		this.tweens = tweens.reduce((a, o, i) => this.#addTween(a, o, i === 0 ? this.delay : 0), []);
 		this.totalTime = this.tweens.reduce((total, tween) => total + (tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
-	addTween(a, o, delay = 0) {
+	#addTween(a, o, delay = 0) {
 		if (o instanceof this.constructor) {
 			for (let i = 0; i < o.tweens.length; i++) {
 				const tween = o.tweens[i];
 
-				this.addTween(a, tween, i === 0 ? o.delay : 0);
+				this.#addTween(a, tween, i === 0 ? o.delay : 0);
 			}
 		} else {
 			if (delay) {
