@@ -37,6 +37,7 @@ export default class {
 			};
 
 			this.#onUpdateCallback = object;
+
 			this.#valuesEnd = {
 				value: 1
 			};
@@ -59,25 +60,25 @@ export default class {
 			this.#valuesEndEntries = [];
 		}
 
-		this.#loopNum                     = 0;
-		this.#loopCount                   = 0;
-		this.#onLoopCallback              = null;
-		this.#onCompleteCallback          = null;
-		this.#onStartCallback             = null;
-		this.#onStartCallbackFired        = false;
-		this.onTimelineInCallback        = null;
-		this.onTimelineOutCallback       = null;
-		this.onTimelineVisibleCallback   = null;
+		this.easingFunction = k => k;
+		this.value = 0;
+		this.delayTime = 0;
+		this.isPlaying = false;
+		this.startTime = null;
+		this.onTimelineInCallback = null;
+		this.onTimelineOutCallback = null;
+		this.onTimelineVisibleCallback = null;
 		this.onTimelineInvisibleCallback = null;
-		this.#previousTime                = null;
-		this.#elapsed                     = 0;
-		this.#previousUpdateValue         = null;
 
-		this.easingFunction              = k => k;
-		this.value                       = 0;
-		this.delayTime                   = 0;
-		this.isPlaying                   = false;
-		this.startTime                   = null;
+		this.#loopNum = 0;
+		this.#loopCount = 0;
+		this.#onLoopCallback = null;
+		this.#onCompleteCallback = null;
+		this.#onStartCallback = null;
+		this.#onStartCallbackFired = false;
+		this.#previousTime = null;
+		this.#elapsed = 0;
+		this.#previousUpdateValue = null;
 
 		Object.keys(this.object).forEach(key => {
 			this.#valuesStart[key] = this.object[key];
