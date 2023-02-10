@@ -1,7 +1,7 @@
-import babel from 'rollup-plugin-babel';
-import commonjs from 'rollup-plugin-commonjs';
-import {terser} from 'rollup-plugin-terser';
-import del from 'rollup-plugin-delete'
+import babel from '@rollup/plugin-babel';
+import commonjs from '@rollup/plugin-commonjs';
+import terser from '@rollup/plugin-terser';
+import del from 'rollup-plugin-delete';
 
 const dist = './dist';
 const name = 'monomove';
@@ -11,7 +11,8 @@ export default {
 	output: [
 		{
 			file: `${dist}/cjs/index.js`,
-			format: 'cjs'
+			format: 'cjs',
+			esModule: true
 		},
 		{
 			format: 'esm',
@@ -21,6 +22,7 @@ export default {
 		{
 			file: `${dist}/umd/index.js`,
 			format: 'umd',
+			esModule: true,
 			name
 		}
 	],
