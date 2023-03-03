@@ -245,7 +245,9 @@ import {SmoothScroller} from '@monokai/monomove';
 ### Using it
 
 ```js
-const smoothScroller = new SmoothScroller();
+const smoothScroller = new SmoothScroller({
+	scrollDuration: 1 // easing duration (default = 0)
+});
 ```
 
 ### Scroll browser page to position 100 in 3 seconds

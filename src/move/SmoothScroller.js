@@ -27,7 +27,6 @@ export default class SmoothScroller {
 	scrollHeight = 0;
 
 	#scrollThreshold = 0.01;
-	#touchScrollFactor = 1;
 	#targetScroll = 0;
 	#previousScroll = 0;
 	#height = 0;
@@ -37,6 +36,7 @@ export default class SmoothScroller {
 	#debugContext = null;
 	#isAnimating = false;
 	#previousTime = 0;
+	#previousScrollWidth = 0;
 	#previousScrollHeight = 0;
 	#touchStartListener = null;
 	#scrollListener = null;
@@ -64,27 +64,38 @@ export default class SmoothScroller {
 		});
 
 	#passive = supportsPassiveListeners ? {passive: true} : false;
-	#scrollFactor = null;
+	#touchScrollDuration = null;
+	#scrollDuration = null;
 	#container = null;
 	#content = null;
 	#listener = null;
 	#debug = null;
 	#onResizeFunk = null;
+	#totalTickTime = 0;
+	#scrollFrom = 0;
+	#easing = 0;
 
 	constructor({
 		container = window.document.body,
 		content = window.document.body,
-		scrollFactor = 1,
+		easing = x => Math.min(1, 1.001 - 2 ** (-10 * x)),
+		scrollFactor = null,
+		scrollDuration = 0,
 		listener = window,
 		debug = false,
 		onResize
 	} = {}) {
-		this.#scrollFactor = scrollFactor;
+		this.#scrollDuration = scrollDuration;
 		this.#container = container;
 		this.#content = content;
 		this.#listener = listener;
 		this.#debug = debug;
+		this.#easing = easing;
 		this.#onResizeFunk = onResize;
+
+		if (scrollFactor) {
+			throw new Error('scrollFactor is deprecated, please use scrollDuration');
+		}
 
 		this.#touchStartListener = () => {
 			if (this.isLocked) {
@@ -101,6 +112,8 @@ export default class SmoothScroller {
 
 			this.#isAnimating = true;
 			this.#targetScroll = clamp(this.getScrollPosition(), 0, Math.round(this.scrollHeight - this.#height));
+			this.#scrollFrom = this.scroll;
+			this.#totalTickTime = 0;
 		};
 
 		this.#mouseDownListener = e => {
@@ -148,17 +161,19 @@ export default class SmoothScroller {
 		this.resize();
 	}
 
-	#onTick() {
+	#onTick(ms) {
 		if (this.isLocked) {
 			return true;
 		}
 
-		this.scrollHeight = this.#content ? this.#content.scrollHeight : 0;
+		this.scrollWidth = this.#content?.scrollWidth ?? 0;
+		this.scrollHeight = this.#content?.scrollHeight ?? 0;
 
-		if (this.scrollHeight !== this.#previousScrollHeight) {
+		if (!(this.scrollWidth === this.#previousScrollWidth && this.scrollHeight === this.#previousScrollHeight)) {
 			this.resize();
-			this.scroll = this.#targetScroll;
+			this.scroll = this.#scrollFrom = this.#targetScroll;
 			this.#onScroll(this.scroll);
+			this.#previousScrollWidth = this.scrollWidth;
 			this.#previousScrollHeight = this.scrollHeight;
 
 			return true;
@@ -168,9 +183,9 @@ export default class SmoothScroller {
 			return true;
 		}
 
-		const dy = (this.#targetScroll - this.scroll) * (this.#isTouch ? this.#touchScrollFactor : this.#scrollFactor);
+		const isComplete = Math.abs(this.#targetScroll - this.scroll) < this.#scrollThreshold;
 
-		if (Math.abs(dy) < this.#scrollThreshold) {
+		if (isComplete) {
 			console.log('stop scrolling', this.scroll);
 
 			// trigger final animations on slow touch devices that can't keep up with intersection observers
@@ -182,11 +197,16 @@ export default class SmoothScroller {
 			this.#isAnimating = false;
 		}
 
-		this.scroll += dy;
+		this.#totalTickTime += ms / 1000;
+
+		const linearProgress = clamp(this.#totalTickTime / (this.#isTouch ? this.#touchScrollDuration : this.#scrollDuration), 0, 1);
+		const easedProgress = this.#easing(linearProgress);
+
+		this.scroll = this.#scrollFrom + (this.#targetScroll - this.#scrollFrom) * easedProgress;
 
 		if (this.#isFirstScrollInstant) {
 			this.#isFirstScrollInstant = false;
-			this.scroll = this.#targetScroll;
+			this.scroll = this.#scrollFrom = this.#targetScroll;
 
 			if (this.#debug) {
 				console.log('trigger all animations in both directions');
@@ -243,7 +263,7 @@ export default class SmoothScroller {
 			return;
 		}
 
-		this.scroll = this.#previousScroll = this.#targetScroll;
+		this.scroll = this.#scrollFrom = this.#previousScroll = this.#targetScroll;
 		this.scrollHeight = this.#content.scrollHeight;
 		this.#height = window.innerHeight;
 
@@ -540,12 +560,12 @@ export default class SmoothScroller {
 		this.#content = null;
 	}
 
-	setScrollFactor(factor) {
-		this.#scrollFactor = factor;
+	setScrollDuration(value) {
+		this.#scrollDuration = value;
 	}
 
-	setTouchScrollFactor(factor) {
-		this.#touchScrollFactor = factor;
+	setTouchScrollDuration(value) {
+		this.#touchScrollDuration = value;
 	}
 
 	destroy() {
