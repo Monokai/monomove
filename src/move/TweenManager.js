@@ -1,4 +1,4 @@
-import BezierEasing from '../math/BezierEasing.js';
+import CubicBezier from '../math/CubicBezier.js';
 
 export default class {
 
@@ -76,7 +76,7 @@ export default class {
 
 	static getEasingFromCache(key) {
 		if (!this.#easingCache.has(key)) {
-			this.#easingCache.set(key, new BezierEasing(key));
+			this.#easingCache.set(key, new CubicBezier(key));
 		}
 
 		return this.#easingCache.get(key);

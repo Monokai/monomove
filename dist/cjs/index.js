@@ -22,4 +22,4 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/const c=s;exports.RenderLoop=i,exports.SmoothScroller=r,exports.Timeline=a,exports.Tween=c,exports.TweenChain=o,exports.TweenManager=e,exports.delay=async t=>new s((()=>!0),0).delay(t).start();
+*/const c=s;exports.CubicBezier=t,exports.RenderLoop=i,exports.SmoothScroller=r,exports.Timeline=a,exports.Tween=c,exports.TweenChain=o,exports.TweenManager=e,exports.delay=async t=>new s((()=>!0),0).delay(t).start();

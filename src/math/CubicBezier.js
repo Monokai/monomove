@@ -1,4 +1,4 @@
-export default class BezierEasing {
+export default class CubicBezier {
 
 	#iterations;
 	#cacheSize;
@@ -10,7 +10,7 @@ export default class BezierEasing {
 	#y2;
 	#isPreComputed;
 
-	static #calculateBezier(t, a, b) {
+	static #calculate(t, a, b) {
 		return (((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t + (3 * a)) * t;
 	}
 
@@ -48,13 +48,13 @@ export default class BezierEasing {
 		let t = _t;
 
 		for (let i = 0; i < this.#iterations; ++i) {
-			const slope = BezierEasing.#getSlope(t, x1, x2);
+			const slope = CubicBezier.#getSlope(t, x1, x2);
 
 			if (slope === 0) {
 				return t;
 			}
 
-			const x = BezierEasing.#calculateBezier(t, x1, x2) - a;
+			const x = CubicBezier.#calculate(t, x1, x2) - a;
 
 			t -= x / slope;
 		}
@@ -64,7 +64,7 @@ export default class BezierEasing {
 
 	#preCompute() {
 		for (let i = 0; i < this.#cacheSize; ++i) {
-			this.#cachedValues[i] = BezierEasing.#calculateBezier(i * this.#cachedValueStepSize, this.#x1, this.#x2);
+			this.#cachedValues[i] = CubicBezier.#calculate(i * this.#cachedValueStepSize, this.#x1, this.#x2);
 		}
 
 		this.#isPreComputed = true;
@@ -101,7 +101,7 @@ export default class BezierEasing {
 			return 1;
 		}
 
-		return BezierEasing.#calculateBezier(this.#getT(x), this.#y1, this.#y2);
+		return CubicBezier.#calculate(this.#getT(x), this.#y1, this.#y2);
 	}
 
 	setIterations(x) {

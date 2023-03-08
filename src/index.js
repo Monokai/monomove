@@ -25,6 +25,7 @@
 
 import MMTween from './move/Tween.js';
 
+export {default as CubicBezier} from './math/CubicBezier.js';
 export {default as TweenManager} from './move/TweenManager.js';
 export {default as TweenChain} from './move/TweenChain.js';
 export {default as Timeline} from './move/Timeline.js';

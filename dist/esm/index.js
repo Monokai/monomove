@@ -1,4 +1,4 @@
-import e from"./move/Tween.js";export{default as TweenManager}from"./move/TweenManager.js";export{default as TweenChain}from"./move/TweenChain.js";export{default as Timeline}from"./move/Timeline.js";export{default as SmoothScroller}from"./move/SmoothScroller.js";export{default as RenderLoop}from"./move/RenderLoop.js";
+import e from"./move/Tween.js";export{default as CubicBezier}from"./math/CubicBezier.js";export{default as TweenManager}from"./move/TweenManager.js";export{default as TweenChain}from"./move/TweenChain.js";export{default as Timeline}from"./move/Timeline.js";export{default as SmoothScroller}from"./move/SmoothScroller.js";export{default as RenderLoop}from"./move/RenderLoop.js";
 /**
  * @license
  * Monomove - utilities for moving things
