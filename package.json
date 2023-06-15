@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.8.1",
+  "version": "1.8.3",
   "author": "Monokai",
   "license": "MIT",
   "description": "utilities for moving things on screen",
@@ -23,7 +23,7 @@
     "./src"
   ],
   "browserslist": [
-    ">1%, last 2 versions and > 0.05%, not dead, not ie 11"
+    ">1%, last 2 versions and > 0.05%, not dead"
   ],
   "scripts": {
     "build": "rollup -c",

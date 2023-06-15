@@ -58,10 +58,10 @@ export default class {
 
 		this.#time = time;
 
-		this.#deadTweens.length = 0;
-
 		this.#tweens.forEach(this.#updateTween, this);
 		this.#deadTweens.forEach(this.#removeDeadTween, this);
+
+		this.#deadTweens.length = 0;
 
 		return true;
 	}

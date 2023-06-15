@@ -530,7 +530,7 @@ export default class SmoothScroller {
 	scrollToElement(node, offset = 0, time = null) {
 		const box = SmoothScroller.getBox(node);
 
-		return this.scrollTo(box.top, offset, time);
+		return this.scrollTo(box.top + offset, time);
 	}
 
 	reset() {
