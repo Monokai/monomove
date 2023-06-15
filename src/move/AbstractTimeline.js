@@ -4,6 +4,7 @@ export default class AbstractTimeline {
 
 	previousPosition = null;
 	delay = null;
+	tween = null;
 
 	constructor({
 		delay = 0
@@ -40,10 +41,21 @@ export default class AbstractTimeline {
 		}
 	}
 
-	async start() {
-		const tween = new Tween(({value}) => this.setPosition(value), this.totalTime / 1000);
+	stop() {
+		this.tween?.stop();
+	}
 
-		await tween.start();
+	destroy() {
+		this.stop();
+		this.tweens.forEach(tween => tween.stop());
+		this.tweens.length = 0;
+		this.totalTime = 0;
+	}
+
+	async start() {
+		this.tween = new Tween(({value}) => this.setPosition(value), this.totalTime / 1000);
+
+		return this.tween.start();
 	}
 
 }

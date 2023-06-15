@@ -163,7 +163,7 @@ export default class {
 			this.isPlaying = false;
 		} else if (!wasPlaying) {
 			TweenManager.add(this);
-			RenderLoop.play();
+			RenderLoop.triggerAnimation();
 		}
 
 		return this;

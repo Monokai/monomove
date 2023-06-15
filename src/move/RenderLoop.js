@@ -14,7 +14,7 @@ export default class RenderLoop {
 	static #requestID = 0;
 	static #time = 0;
 	static #onlyHasDelayedTweens = false;
-	// static #isFirstTime = true;
+	static #isFirstTime = true;
 
 	static #animate() {
 		const animationLoop = () => {
@@ -42,7 +42,9 @@ export default class RenderLoop {
 			if (this.#isAnimating && (this.#dirtyCallbacks > 0 || hasTweens)) {
 				this.#requestID = window.requestAnimationFrame(animationLoop);
 			} else {
-				// console.log('stop rendering', this.#isAnimating, this.#dirtyCallbacks, hasTweens);
+				// this.#isAnimating = false;
+				// this.#pauseTime = 0;
+				// this.#isFirstTime = true;
 				this.#requestAnimation = false;
 			}
 
@@ -139,15 +141,18 @@ export default class RenderLoop {
 			return;
 		}
 
-		// if (!this.#isFirstTime) {
-		this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
-		// }
+		if (!this.#isFirstTime) {
+			this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
+		}
 
+		this.#isFirstTime = false;
+
+		this.triggerAnimation();
+	}
+
+	static triggerAnimation() {
 		this.#isAnimating = true;
-
 		this.trigger();
-
-		// this.#isFirstTime = false;
 	}
 
 	static isPlaying() {
