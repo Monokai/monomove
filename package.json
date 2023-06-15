@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.8.3",
+  "version": "1.8.4",
   "author": "Monokai",
   "license": "MIT",
   "description": "utilities for moving things on screen",

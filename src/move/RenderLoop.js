@@ -14,7 +14,7 @@ export default class RenderLoop {
 	static #requestID = 0;
 	static #time = 0;
 	static #onlyHasDelayedTweens = false;
-	static #isFirstTime = true;
+	// static #isFirstTime = true;
 
 	static #animate() {
 		const animationLoop = () => {
@@ -139,15 +139,15 @@ export default class RenderLoop {
 			return;
 		}
 
-		if (!this.#isFirstTime) {
-			this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
-		}
+		// if (!this.#isFirstTime) {
+		this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
+		// }
 
 		this.#isAnimating = true;
 
 		this.trigger();
 
-		this.#isFirstTime = false;
+		// this.#isFirstTime = false;
 	}
 
 	static isPlaying() {
