@@ -340,6 +340,7 @@ export default class SmoothScroller {
 			o.boxIsInView = o.rawBoxFactor >= 0 && o.rawBoxFactor <= 1;
 			o.box = box;
 			o.item = a.item;
+			o.index = a.index;
 
 			if (o.fixedTop) {
 				o.box.top = o.fixedTop;
@@ -417,7 +418,7 @@ export default class SmoothScroller {
 			options.observeIn = null;
 		}
 
-		items.forEach(item => {
+		items.forEach((item, index) => {
 			const animationObject = {
 				centerOffset: 0,
 				originalTop : 0,
@@ -451,6 +452,7 @@ export default class SmoothScroller {
 				speed          : options.speed === undefined ? 1 : options.speed,
 				animationObject,
 				item,
+				index,
 				observer
 			};
 
