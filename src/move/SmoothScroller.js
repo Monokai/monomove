@@ -26,6 +26,7 @@ export default class SmoothScroller {
 	scroll = 0;
 	scrollHeight = 0;
 
+	#pixelRatio = 1;
 	#scrollThreshold = 0.01;
 	#targetScroll = 0;
 	#previousScroll = 0;
@@ -187,7 +188,7 @@ export default class SmoothScroller {
 
 		if (isComplete) {
 			if (this.#debug) {
-				console.log('stop scrolling', this.scroll);
+				// console.log('stop scrolling', this.scroll);
 			}
 
 			// trigger final animations on slow touch devices that can't keep up with intersection observers
@@ -271,6 +272,7 @@ export default class SmoothScroller {
 		this.scroll = this.#scrollFrom = this.#previousScroll = this.#targetScroll;
 		this.scrollHeight = this.#content.scrollHeight;
 		this.#height = window.innerHeight;
+		this.#pixelRatio = window.devicePixelRatio;
 
 		this.#animations.forEach(a => {
 			this.#initBox(a);
@@ -299,102 +301,105 @@ export default class SmoothScroller {
 	}
 
 	triggerAnimations(all = false) {
-		const r = window.devicePixelRatio;
-
 		if (this.#debugContext) {
 			this.#debugContext.clearRect(0, 0, this.#debugCanvas.width, this.#debugCanvas.height);
 			this.#debugContext.strokeStyle = '#f00';
-			this.#debugContext.lineWidth = 2 * r;
+			this.#debugContext.lineWidth = 2 * this.#pixelRatio;
 			this.#debugContext.beginPath();
 		}
 
 		const animations = all ? this.#animations : this.#activeAnimations;
 
-		animations.forEach(a => {
-			const box = a.box;
-
-			if (!box || !box.width || !box.height) {
-				return;
-			}
-
-			const o = a.animationObject;
-
-			o.scroll = this.scroll;
-
-			const directionOffset = a.directionOffset || 0;
-			const offset = a.offset || 0;
-			const pos = box.top
-				+ box.height
-				- o.scroll
-				+ directionOffset * (this.isDown ? -1 : 1) * this.#height
-				+ offset * this.#height;
-
-			const rawFactor = pos / (this.#height + box.height);
-			const rawBoxFactor = (pos - this.#height) / box.height;
-
-			o.rawFactor = ((1 - rawFactor) - 0.5) * a.speed + 0.5;
-			o.rawBoxFactor = ((1 - rawBoxFactor) - 0.5) * a.speed + 0.5;
-			o.factor = clamp(o.rawFactor, 0, 1);
-			o.isInView = o.rawFactor >= 0 && o.rawFactor <= 1;
-			o.boxFactor = clamp(o.rawBoxFactor, 0, 1);
-			o.boxIsInView = o.rawBoxFactor >= 0 && o.rawBoxFactor <= 1;
-			o.box = box;
-			o.item = a.item;
-			o.index = a.index;
-
-			if (o.fixedTop) {
-				o.box.top = o.fixedTop;
-			}
-
-			if (o.isInView !== o.previousIsInView) {
-				if (o.isInView) {
-					o.isScrolledIn = true;
-
-					if (o.isScrolledInOnce === undefined) {
-						o.isScrolledInOnce = true;
-					}
-				} else if (o.previousIsInView !== undefined) {
-					o.isScrolledOut = true;
-
-					if (o.isScrolledOutOnce === undefined) {
-						o.isScrolledOutOnce = true;
-					}
-				}
-			}
-
-			if (a.animation && a.previousFactor !== o.factor) {
-				a.animation(o);
-				a.previousFactor = o.factor;
-			}
-
-			o.isScrolledIn = false;
-			o.isScrolledOut = false;
-
-			if (o.isScrolledInOnce === true) {
-				o.isScrolledInOnce = false;
-			}
-
-			if (o.isScrolledOutOnce === true) {
-				o.isScrolledOutOnce = false;
-			}
-
-			o.previousIsInView = o.isInView;
-
-			if (this.#debugContext
-				&& (o.box.top + o.box.height - o.scroll >= 0
-				&& o.box.top - o.scroll <= this.#height)
-			) {
-				this.#debugContext.rect(
-					o.box.left * r,
-					o.box.top * r - o.scroll * r,
-					o.box.width * r,
-					o.box.height * r
-				);
-			}
+		animations?.forEach(a => {
+			this.#triggerAnimation(a)
 		});
 
 		if (this.#debugContext) {
 			this.#debugContext.stroke();
+		}
+	}
+
+	#triggerAnimation(a, isInView) {
+		const box = a.box;
+
+		if (!box || !box.width || !box.height) {
+			return;
+		}
+
+		const o = a.animationObject;
+
+		o.scroll = this.scroll;
+
+		const directionOffset = a.directionOffset || 0;
+		const offset = a.offset || 0;
+
+		const pos = box.top
+			+ box.height
+			- o.scroll
+			+ directionOffset * (this.isDown ? -1 : 1) * this.#height
+			+ offset * this.#height
+
+		const rawFactor = pos / (this.#height + box.height);
+		const rawBoxFactor = (pos - this.#height) / box.height;
+
+		o.rawFactor = ((1 - rawFactor) - 0.5) * a.speed + 0.5;
+		o.rawBoxFactor = ((1 - rawBoxFactor) - 0.5) * a.speed + 0.5;
+		o.factor = clamp(o.rawFactor, 0, 1);
+		o.isInView = isInView ?? (o.rawFactor >= 0 && o.rawFactor <= 1);
+		o.boxFactor = clamp(o.rawBoxFactor, 0, 1);
+		o.boxIsInView = o.rawBoxFactor >= 0 && o.rawBoxFactor <= 1;
+		o.box = box;
+		o.item = a.item;
+		o.index = a.index;
+
+		if (o.fixedTop) {
+			o.box.top = o.fixedTop;
+		}
+
+		if (o.isInView !== o.previousIsInView) {
+			if (o.isInView) {
+				o.isScrolledIn = true;
+
+				if (o.isScrolledInOnce === undefined) {
+					o.isScrolledInOnce = true;
+				}
+			} else if (o.previousIsInView !== undefined) {
+				o.isScrolledOut = true;
+
+				if (o.isScrolledOutOnce === undefined) {
+					o.isScrolledOutOnce = true;
+				}
+			}
+		}
+
+		if (a.animation && (a.previousFactor !== o.factor || (isInView !== undefined))) {
+			a.animation(o);
+			a.previousFactor = o.factor;
+		}
+
+		o.isScrolledIn = false;
+		o.isScrolledOut = false;
+
+		if (o.isScrolledInOnce === true) {
+			o.isScrolledInOnce = false;
+		}
+
+		if (o.isScrolledOutOnce === true) {
+			o.isScrolledOutOnce = false;
+		}
+
+		o.previousIsInView = o.isInView;
+
+		if (this.#debugContext
+			&& (o.box.top + box.height - o.scroll >= 0
+			&& o.box.top - o.scroll <= this.#height)
+		) {
+			this.#debugContext.rect(
+				o.box.left * this.#pixelRatio,
+				(o.box.top - o.scroll) * this.#pixelRatio,
+				o.box.width * this.#pixelRatio,
+				o.box.height * this.#pixelRatio
+			);
 		}
 	}
 
@@ -419,10 +424,18 @@ export default class SmoothScroller {
 		}
 
 		items.forEach((item, index) => {
-			const animationObject = {
-				centerOffset: 0,
-				originalTop : 0,
-				isVisible   : true
+			const animation = {
+				animation      : callback,
+				directionOffset: options.directionOffset || 0,
+				offset         : options.offset || 0,
+				speed          : options.speed === undefined ? 1 : options.speed,
+				animationObject: {
+					centerOffset: 0,
+					originalTop : 0,
+					isVisible   : true
+				},
+				item,
+				index
 			};
 
 			// use intersection observer to only parse active animations
@@ -431,7 +444,9 @@ export default class SmoothScroller {
 			if (window.IntersectionObserver && options.observeIn !== undefined) {
 				observer = new window.IntersectionObserver(entries => {
 					entries.forEach(entry => {
-						animationObject.isVisible = entry.isIntersecting;
+						animation.animationObject.isVisible = entry.isIntersecting;
+
+						this.#triggerAnimation(animation, entry.isIntersecting);
 						this.#updateActiveAnimations();
 					});
 				}, {
@@ -445,16 +460,7 @@ export default class SmoothScroller {
 				this.#activeAnimations = null;
 			}
 
-			const animation = {
-				animation      : callback,
-				directionOffset: options.directionOffset || 0,
-				offset         : options.offset || 0,
-				speed          : options.speed === undefined ? 1 : options.speed,
-				animationObject,
-				item,
-				index,
-				observer
-			};
+			animation.observer = observer;
 
 			this.#initBox(animation);
 
@@ -472,6 +478,13 @@ export default class SmoothScroller {
 
 	remove(_items) {
 		const items = _items && _items instanceof Array ? _items : [_items];
+
+		this.#animations.forEach(a => {
+			if (items.indexOf(a.item) >= 0) {
+				this.#triggerAnimation(a, false);
+				a.observer?.unobserve?.(a.item);
+			}
+		});
 
 		this.#animations = this.#animations.filter(a => items.indexOf(a.item) < 0);
 	}
@@ -590,6 +603,10 @@ export default class SmoothScroller {
 			this.#listener.removeEventListener('mousedown', this.#mouseDownListener, this.#passive);
 			this.#listener.removeEventListener('scroll', this.#scrollListener, this.#passive);
 		}
+
+		this.#animations.forEach(a => {
+			a.observer?.unobserve?.(a.item);
+		});
 
 		this.reset();
 		this.stop();
