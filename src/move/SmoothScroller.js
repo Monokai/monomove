@@ -432,7 +432,8 @@ export default class SmoothScroller {
 				animationObject: {
 					centerOffset: 0,
 					originalTop : 0,
-					isVisible   : true
+					isVisible   : true,
+					data        : options.data
 				},
 				item,
 				index
