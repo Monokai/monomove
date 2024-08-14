@@ -1,4 +1,5 @@
 import clamp from '../math/clamp.js';
+import smoothValue from '../math/smoothValue.js';
 import RenderLoop from './RenderLoop.js';
 import Tween from './Tween.js';
 
@@ -33,6 +34,7 @@ export default class SmoothScroller {
 	#height = 0;
 	#animations = [];
 	#activeAnimations = null;
+	#smoothAnimations = null;
 	#debugCanvas = null;
 	#debugContext = null;
 	#isAnimating = false;
@@ -180,6 +182,14 @@ export default class SmoothScroller {
 			return true;
 		}
 
+		if (this.#smoothAnimations?.length) {
+			this.#smoothAnimations.forEach(a => {
+				this.#triggerAnimation(a, true, ms);
+			});
+
+			this.#updateActiveAnimations();
+		}
+
 		if (!this.#isAnimating) {
 			return true;
 		}
@@ -319,7 +329,7 @@ export default class SmoothScroller {
 		}
 	}
 
-	#triggerAnimation(a, isInView) {
+	#triggerAnimation(a, isInView, ms) {
 		const box = a.box;
 
 		if (!box || !box.width || !box.height) {
@@ -330,12 +340,20 @@ export default class SmoothScroller {
 
 		o.scroll = this.scroll;
 
+		if (a.smoothing && a.smoothScroll) {
+			const deltaSeconds = (ms || 0) * 60 / 1000;
+
+			o.smoothScrollValue = a.smoothScroll(o.scroll, deltaSeconds, a.smoothing);
+		} else {
+			o.smoothScrollValue = o.scroll;
+		}
+
 		const directionOffset = a.directionOffset || 0;
 		const offset = a.offset || 0;
 
 		const pos = box.top
 			+ box.height
-			- o.scroll
+			- o.smoothScrollValue
 			+ directionOffset * (this.isDown ? -1 : 1) * this.#height
 			+ offset * this.#height
 
@@ -358,6 +376,10 @@ export default class SmoothScroller {
 
 		if (o.isInView !== o.previousIsInView) {
 			if (o.isInView) {
+				if (a.smoothing) {
+					a.smoothScroll = smoothValue(o.scroll);
+				}
+
 				o.isScrolledIn = true;
 
 				if (o.isScrolledInOnce === undefined) {
@@ -365,6 +387,8 @@ export default class SmoothScroller {
 				}
 			} else if (o.previousIsInView !== undefined) {
 				o.isScrolledOut = true;
+
+				a.smoothScroll = null;
 
 				if (o.isScrolledOutOnce === undefined) {
 					o.isScrolledOutOnce = true;
@@ -429,6 +453,7 @@ export default class SmoothScroller {
 				directionOffset: options.directionOffset || 0,
 				offset         : options.offset || 0,
 				speed          : options.speed === undefined ? 1 : options.speed,
+				smoothing      : options.smoothing,
 				animationObject: {
 					centerOffset: 0,
 					originalTop : 0,
@@ -470,10 +495,13 @@ export default class SmoothScroller {
 	}
 
 	#updateActiveAnimations() {
-		this.#activeAnimations = this.#animations.filter(a => a.animationObject.isVisible);
+		const hasSmoothing = a => (a.smoothing && (a.animationObject.smoothScrollValue === a.animationObject.scroll) || Math.abs(a.animationObject.smoothScrollValue - a.animationObject.scroll) > this.#scrollThreshold);
+
+		this.#activeAnimations = this.#animations.filter(a => a.animationObject.isVisible && !hasSmoothing(a));
+		this.#smoothAnimations = this.#animations.filter(a => a.animationObject.isVisible && hasSmoothing(a));
 
 		if (this.#debug) {
-			console.log(`active animations: ${this.#activeAnimations.length}`);
+			console.log(`active animations: ${this.#activeAnimations.length}, smooth animations: ${this.#smoothAnimations.length})`);
 		}
 	}
 
