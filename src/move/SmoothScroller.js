@@ -184,7 +184,7 @@ export default class SmoothScroller {
 
 		this.#smoothAnimations?.forEach(a => {
 			if (Math.abs(a.animationObject.smoothScrollValue - this.scroll) > this.#scrollThreshold) {
-				this.#triggerAnimation(a, true, ms);
+				this.#triggerAnimation(a, null, ms);
 			}
 		});
 
@@ -496,7 +496,7 @@ export default class SmoothScroller {
 		const hasSmoothing = a => (a.smoothing);// && (a.animationObject.smoothScrollValue === a.animationObject.scroll) || Math.abs(a.animationObject.smoothScrollValue - a.animationObject.scroll) > this.#scrollThreshold);
 
 		this.#activeAnimations = this.#animations.filter(a => a.animationObject.isVisible && !hasSmoothing(a));
-		this.#smoothAnimations = this.#animations.filter(a => a.animationObject.isVisible && hasSmoothing(a));
+		this.#smoothAnimations = this.#animations.filter(a => hasSmoothing(a));
 
 		if (this.#debug) {
 			console.log(`active animations: ${this.#activeAnimations.length}, smooth animations: ${this.#smoothAnimations.length})`);
