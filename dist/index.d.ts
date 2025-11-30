@@ -96,7 +96,6 @@ interface EasingOptions {
     cacheSize?: number;
 }
 declare class Tween$1<T extends TweenableObject = TweenableObject> implements ITween {
-    #private;
     durationMS: number;
     isPlaying: boolean;
     delayTime: number;
@@ -112,6 +111,22 @@ declare class Tween$1<T extends TweenableObject = TweenableObject> implements IT
     previousTimelineIn: boolean;
     timelineVisible: boolean;
     previousTimelineVisible: boolean;
+    private _onUpdateCallback;
+    private _onLoopCallback;
+    private _onCompleteCallback;
+    private _onStartCallback;
+    private _valuesEnd;
+    private _valuesStart;
+    private _propKeys;
+    private _propStartValues;
+    private _propChangeValues;
+    private _loopNum;
+    private _loopCount;
+    private _onStartCallbackFired;
+    private _previousTime;
+    private _elapsed;
+    private _previousUpdateValue;
+    private _inverseDuration;
     constructor(object?: T | UpdateCallback<T>, duration?: number);
     from(properties: Partial<T>): this;
     to(properties: Partial<T>, duration?: number): this;
@@ -147,7 +162,10 @@ declare class CubicBezier {
 }
 
 declare class TweenManager {
-    #private;
+    private static _tweens;
+    private static _time;
+    private static _easingCache;
+    private static _isUpdating;
     static bezierIterations: number | null;
     static bezierCacheSize: number | null;
     static getAll(): ITween[];
@@ -175,16 +193,16 @@ declare abstract class AbstractTimeline implements ITween {
     durationMS: number;
     value: number;
     easingFunction: (t: number) => number;
-    tween: Tween$1<TimelineValue> | null;
-    tweens: (ITween)[];
+    protected _driverTween: Tween$1<TimelineValue> | null;
+    protected _tweens: ITween[];
     totalTime: number;
     constructor({ delay }?: TimelineOptions);
-    static setTweenIn(tween: Tween$1, isIn: boolean): void;
-    static setTweenVisibility(tween: Tween$1, isVisible: boolean): void;
+    protected static setTweenIn(tween: Tween$1, isIn: boolean): void;
+    protected static setTweenVisibility(tween: Tween$1, isVisible: boolean): void;
     delay(amount: number): this;
     stop(): this;
     destroy(): void;
-    start(): Promise<ITween>;
+    start(): Promise<this>;
     abstract setPosition(position: number): void;
     abstract update(time: number): boolean;
     updateAllValues(): void;
@@ -192,35 +210,78 @@ declare abstract class AbstractTimeline implements ITween {
 }
 
 declare class TweenChain extends AbstractTimeline {
-    #private;
-    constructor(tweens: (ITween)[], options?: TimelineOptions);
+    private _startTimes;
+    private _durations;
+    constructor(tweens: ITween[], options?: TimelineOptions);
+    private _addTweens;
     setPosition(position: number): void;
     update(time?: number): boolean;
 }
 
 declare class Timeline extends AbstractTimeline {
-    #private;
+    private _startTimes;
+    private _durations;
     constructor(tweens: ITween[], options?: TimelineOptions);
+    private _addTweens;
     setPosition(position: number): void;
     update(time?: number): boolean;
 }
 
 declare class SmoothScroller {
-    #private;
     isDown: boolean;
     isLocked: boolean;
     scroll: number;
     scrollWidth: number;
     scrollHeight: number;
+    private _pixelRatio;
+    private _scrollThreshold;
+    private _targetScroll;
+    private _previousScroll;
+    private _viewportHeight;
+    private _animations;
+    private _activeAnimations;
+    private _smoothAnimations;
+    private _debugCanvas;
+    private _debugContext;
+    private _isAnimating;
+    private _previousScrollWidth;
+    private _previousScrollHeight;
+    private _isFirstScrollInstant;
+    private _isTouch;
+    private _scrollTween;
+    private _touchScrollDuration;
+    private _scrollDuration;
+    private _container;
+    private _content;
+    private _listener;
+    private _debug;
+    private _onResizeFunk;
+    private _totalTickTime;
+    private _scrollFrom;
+    private _easing;
+    private _getScrollFn;
+    private _tickHandler;
+    private _touchStartHandler;
+    private _mouseDownHandler;
+    private _wheelHandler;
+    private _scrollHandler;
     constructor({ container, content, easing, scrollFactor, scrollDuration, listener, debug, onResize }?: SmoothScrollOptions);
+    private _setupListeners;
+    private _setupDebug;
+    private _onTick;
+    private _updateAll;
     draw(): void;
     drawAll(): void;
-    getScrollPosition(): unknown;
+    getScrollPosition(): number;
     resize(): void;
     triggerAnimations(all?: boolean): void;
+    private _drawDebug;
+    private _triggerAnimation;
     add(_items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions): void;
+    private _refreshActiveSets;
     remove(_items: HTMLElement | HTMLElement[]): void;
     static getBox(node: HTMLElement): DOMRectLike;
+    private _initBox;
     scrollTo(position?: number, time?: number | null): Promise<Tween$1<{
         y: number;
     }>>;
@@ -238,12 +299,30 @@ declare class SmoothScroller {
     destroy(): void;
 }
 
+type RenderCallback = (ms: number) => boolean | void;
+type CleanupCallback = () => void;
 declare class RenderLoop {
-    #private;
+    private static _subscribers;
+    private static _cleanups;
+    private static _isUpdating;
+    private static _activeCount;
+    private static _ms;
+    private static _time;
+    private static _previousTime;
+    private static _pauseTime;
+    private static _pauseTimeStart;
+    private static _isAnimating;
+    private static _requestAnimation;
+    private static _requestID;
+    private static _onlyHasDelayedTweens;
+    private static _isFirstTime;
+    private static _loopHandler;
+    private static _animate;
+    private static _compact;
     static stop(callback?: () => void): void;
-    static add(context: unknown, funk: (ms: number) => boolean | void, cleanUp?: () => void): void;
+    static add(callback: RenderCallback, cleanUp?: CleanupCallback): void;
     static reset(): void;
-    static remove(context: unknown, funk?: (ms: number) => boolean | void): void;
+    static remove(callback: RenderCallback): void;
     static trigger(): void;
     static getTime(): number;
     static pause(): void;

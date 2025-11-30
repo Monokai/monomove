@@ -1,170 +1,198 @@
 import TweenManager from './TweenManager.js';
 
-interface RenderLoopCallback {
-	context: unknown;
-	funk: (ms: number) => boolean | void;
-	cleanUp?: () => void;
-	isPlaying: boolean;
-}
+type RenderCallback = (ms: number) => boolean | void;
+type CleanupCallback = () => void;
 
 export default class RenderLoop {
 
-	static #callbacks: RenderLoopCallback[] = [];
-	static #cleanUps: RenderLoopCallback[] = [];
-	static #dirtyCallbacks = 0;
-	static #isAnimating = false;
-	static #ms = 0;
-	static #pauseTime = 0;
-	static #pauseTimeStart = 0;
-	static #previousTime = 0;
-	static #requestAnimation = false;
-	static #requestID = 0;
-	static #time = 0;
-	static #onlyHasDelayedTweens = false;
-	static #isFirstTime = true;
+	// Structure of Arrays (SoA) for better cache locality and reduced object allocation
+	// We allow nulls internally to handle safe removals during iteration
+	private static _subscribers: (RenderCallback | null)[] = [];
+	private static _cleanups: (CleanupCallback | null)[] = [];
+	
+	private static _isUpdating = false;
+	private static _activeCount = 0;
 
-	static #animate() {
-		const animationLoop = () => {
-			this.#time = window.performance.now() - this.#pauseTime;
-			this.#ms = this.#previousTime ? this.#time - this.#previousTime : 0;
+	private static _ms = 0;
+	private static _time = 0;
+	private static _previousTime = 0;
+	
+	private static _pauseTime = 0;
+	private static _pauseTimeStart = 0;
+	
+	private static _isAnimating = false;
+	private static _requestAnimation = false;
+	private static _requestID = 0;
+	private static _onlyHasDelayedTweens = false;
+	private static _isFirstTime = true;
 
-			const hasTweens = TweenManager.onTick(this.#time);
+	// Pre-bound handler to avoid creating closures every frame
+	private static _loopHandler = RenderLoop._animate.bind(RenderLoop);
 
-			this.#dirtyCallbacks = 0;
+	private static _animate() {
+		const now = window.performance.now();
+		this._time = now - this._pauseTime;
+		this._ms = this._previousTime ? this._time - this._previousTime : 0;
 
-			if (this.#isAnimating && !this.#onlyHasDelayedTweens) {
-				for (let i = 0; i < this.#callbacks.length; i++) {
-					const callback = this.#callbacks[i];
+		const hasTweens = TweenManager.onTick(this._time);
 
-					if (callback.isPlaying) {
-						// eslint-disable-next-line @typescript-eslint/ban-types
-						const isDirty = callback.funk.call(callback.context, this.#ms);
+		this._isUpdating = true;
+		let dirtyCount = 0;
 
-						if (isDirty) {
-							this.#dirtyCallbacks++;
-						}
-					}
+		// Iterate current subscribers
+		// We use the array length directly. New additions during this loop 
+		// are pushed to the end and handled in the next frame naturally.
+		const len = this._subscribers.length;
+		const subs = this._subscribers;
+
+		for (let i = 0; i < len; i++) {
+			const sub = subs[i];
+			// Skip nulls (items removed during this tick)
+			if (sub !== null) {
+				if (sub(this._ms) === true) {
+					dirtyCount++;
 				}
 			}
+		}
 
-			if (this.#isAnimating && (this.#dirtyCallbacks > 0 || hasTweens)) {
-				this.#requestID = window.requestAnimationFrame(animationLoop);
-			} else {
-				// this.#isAnimating = false;
-				// this.#pauseTime = 0;
-				// this.#isFirstTime = true;
-				this.#requestAnimation = false;
-			}
-
-			if (!this.#onlyHasDelayedTweens) {
-				for (let i = 0; i < this.#cleanUps.length; i++) {
-					const callback = this.#cleanUps[i];
-
-					if (callback.isPlaying && callback.cleanUp) {
-						callback.cleanUp.call(callback.context);
-					}
+		if (!this._onlyHasDelayedTweens) {
+			const cleanups = this._cleanups;
+			for (let i = 0; i < len; i++) {
+				// Check parallel array for cleanup and ensure subscriber wasn't removed (null)
+				const cleanup = cleanups[i];
+				if (cleanup !== null && subs[i] !== null) {
+					cleanup();
 				}
 			}
+		}
 
-			this.#onlyHasDelayedTweens = this.#dirtyCallbacks === 0 && TweenManager.onlyHasDelayedTweens(this.#time);
-			this.#previousTime = this.#time;
-		};
+		this._isUpdating = false;
 
-		animationLoop();
+		// Cleanup nulls if any removals happened
+		if (this._activeCount < subs.length) {
+			this._compact();
+		}
+
+		this._onlyHasDelayedTweens = (dirtyCount === 0) && TweenManager.onlyHasDelayedTweens(this._time);
+		this._previousTime = this._time;
+
+		if (this._isAnimating && (dirtyCount > 0 || hasTweens)) {
+			this._requestID = window.requestAnimationFrame(this._loopHandler);
+		} else {
+			this._requestAnimation = false;
+		}
 	}
 
-	static stop(callback?: () => void) {
-		this.#isAnimating = false;
+	private static _compact() {
+		let writePtr = 0;
+		const len = this._subscribers.length;
+		const subs = this._subscribers;
+		const cleanups = this._cleanups;
 
-		window.cancelAnimationFrame(this.#requestID);
+		for (let i = 0; i < len; i++) {
+			const sub = subs[i];
+			if (sub !== null) {
+				if (i !== writePtr) {
+					subs[writePtr] = sub;
+					cleanups[writePtr] = cleanups[i];
+				}
+				writePtr++;
+			}
+		}
+
+		subs.length = writePtr;
+		cleanups.length = writePtr;
+		this._activeCount = writePtr;
+	}
+
+	public static stop(callback?: () => void) {
+		this._isAnimating = false;
+		window.cancelAnimationFrame(this._requestID);
 
 		if (callback) {
 			callback();
 		}
 	}
 
-	static add(context: unknown, funk: (ms: number) => boolean | void, cleanUp?: () => void) {
-		const o: RenderLoopCallback = {
-			context,
-			funk,
-			cleanUp,
-			isPlaying: true
-		};
-
-		this.#callbacks.push(o);
-
-		if (o.cleanUp) {
-			this.#cleanUps.push(o);
-		}
-
+	public static add(callback: RenderCallback, cleanUp?: CleanupCallback) {
+		this._subscribers.push(callback);
+		this._cleanups.push(cleanUp || null);
+		this._activeCount++;
 		this.trigger();
 	}
 
-	static reset() {
-		this.#callbacks.length = 0;
-		this.#cleanUps.length = 0;
-
+	public static reset() {
+		this._subscribers.length = 0;
+		this._cleanups.length = 0;
+		this._activeCount = 0;
 		TweenManager.removeAll();
 	}
 
-	static remove(context: unknown, funk?: (ms: number) => boolean | void) {
-		const filter = (f: RenderLoopCallback) => !(f.context === context && (funk ? f.funk === funk : true));
-
-		this.#callbacks = this.#callbacks.filter(filter);
-		this.#cleanUps = this.#cleanUps.filter(filter);
-
+	public static remove(callback: RenderCallback) {
+		const index = this._subscribers.indexOf(callback);
+		
+		if (index !== -1) {
+			if (this._isUpdating) {
+				// Soft remove: nullify slot to preserve indices during iteration
+				this._subscribers[index] = null;
+				this._cleanups[index] = null;
+				this._activeCount--;
+			} else {
+				// Hard remove
+				this._subscribers.splice(index, 1);
+				this._cleanups.splice(index, 1);
+				this._activeCount--;
+			}
+		}
+		
 		this.trigger();
 	}
 
-	static trigger() {
-		this.#onlyHasDelayedTweens = false;
+	public static trigger() {
+		this._onlyHasDelayedTweens = false;
 
-		if (this.#requestAnimation) {
+		if (this._requestAnimation) {
 			return;
 		}
 
-		this.#requestAnimation = true;
-		this.#requestID = window.requestAnimationFrame(this.#animate.bind(this));
+		this._requestAnimation = true;
+		this._requestID = window.requestAnimationFrame(this._loopHandler);
 	}
 
-	static getTime() {
-		this.#time = window.performance.now() - this.#pauseTime;
-
-		return this.#time;
+	public static getTime() {
+		this._time = window.performance.now() - this._pauseTime;
+		return this._time;
 	}
 
-	static pause() {
-		if (!this.#isAnimating) {
+	public static pause() {
+		if (!this._isAnimating) {
 			return;
 		}
 
-		this.#pauseTimeStart = window.performance.now();
-		this.#requestAnimation = false;
-
+		this._pauseTimeStart = window.performance.now();
+		this._requestAnimation = false;
 		this.stop();
 	}
 
-	static play() {
-		if (this.#isAnimating) {
+	public static play() {
+		if (this._isAnimating) {
 			return;
 		}
 
-		if (!this.#isFirstTime) {
-			this.#pauseTime += window.performance.now() - this.#pauseTimeStart;
+		if (!this._isFirstTime) {
+			this._pauseTime += window.performance.now() - this._pauseTimeStart;
 		}
 
-		this.#isFirstTime = false;
-
+		this._isFirstTime = false;
 		this.triggerAnimation();
 	}
 
-	static triggerAnimation() {
-		this.#isAnimating = true;
+	public static triggerAnimation() {
+		this._isAnimating = true;
 		this.trigger();
 	}
 
-	static isPlaying() {
-		return this.#isAnimating;
+	public static isPlaying() {
+		return this._isAnimating;
 	}
-
 }

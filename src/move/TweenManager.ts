@@ -3,84 +3,139 @@ import type { ITween } from '../types.js';
 
 export default class TweenManager {
 
-	static #tweens: ITween[] = [];
-	static #deadTweens: ITween[] = [];
-	static #time = 0;
-	static #easingCache = new Map<string, CubicBezier>();
+	// (ITween | null)[] allows us to nullify slots cheaply during update loops
+	// without using splice, which shifts the whole array.
+	private static _tweens: (ITween | null)[] = [];
+	private static _time = 0;
+	private static _easingCache = new Map<string, CubicBezier>();
+	private static _isUpdating = false;
 
-	static bezierIterations: number | null = null;
-	static bezierCacheSize: number | null = null;
+	public static bezierIterations: number | null = null;
+	public static bezierCacheSize: number | null = null;
 
-	static getAll() {
-		return this.#tweens;
+	public static getAll(): ITween[] {
+		// Return a clean array without internal nulls for consumers
+		const result: ITween[] = [];
+		const len = this._tweens.length;
+		for (let i = 0; i < len; i++) {
+			const t = this._tweens[i];
+			if (t !== null) result.push(t);
+		}
+		return result;
 	}
 
-	static removeAll() {
-		this.#tweens.forEach(tween => {
-			tween.stop();
-		});
-
-		this.#tweens.length = 0;
-		this.#easingCache.clear();
+	public static removeAll() {
+		const len = this._tweens.length;
+		for (let i = 0; i < len; i++) {
+			this._tweens[i]?.stop();
+		}
+		this._tweens.length = 0;
+		this._easingCache.clear();
 	}
 
-	static add(tween: ITween) {
-		this.#tweens.push(tween);
+	public static add(tween: ITween) {
+		this._tweens.push(tween);
 	}
 
-	static remove(tween: ITween) {
-		const i = this.#tweens.indexOf(tween);
-
-		if (i !== -1) {
-			this.#tweens.splice(i, 1);
+	public static remove(tween: ITween) {
+		const index = this._tweens.indexOf(tween);
+		if (index !== -1) {
+			if (this._isUpdating) {
+				// Soft remove: If currently iterating, just mark as null to avoid 
+				// index shifting which breaks the update loop. 
+				// The onTick compaction will clean this up.
+				this._tweens[index] = null;
+			} else {
+				// Hard remove: If not iterating, keep the array tight immediately.
+				this._tweens.splice(index, 1);
+			}
 		}
 	}
 
-	static #removeTween(tween: ITween) {
-		this.remove(tween);
-	}
-
-	static #updateTween(tween: ITween) {
-		if (!tween.update(this.#time)) {
-			this.#deadTweens.push(tween);
+	public static onlyHasDelayedTweens(time: number) {
+		const tweens = this._tweens;
+		const len = tweens.length;
+		
+		for (let i = 0; i < len; i++) {
+			const t = tweens[i];
+			if (t !== null) {
+				// If a tween exists and has started (or has no start time yet), 
+				// then we have active animations.
+				if (t.startTime === null || time >= t.startTime) {
+					return false;
+				}
+			}
 		}
+		
+		// If we found tweens but none were active, true.
+		// If we found no tweens at all (length 0 or all null), 
+		// technically "delayed tweens" is false, but safe to say false here implies idle.
+		return len > 0;
 	}
 
-	static onlyHasDelayedTweens(time: number) {
-		return this.#tweens.length > 0 && this.#tweens.every(t => t.startTime !== null && time < t.startTime);
-	}
+	public static onTick(time: number): boolean {
+		const tweens = this._tweens;
+		const initialLen = tweens.length;
 
-	static onTick(time: number) {
-		if (this.#tweens.length === 0) {
+		if (initialLen === 0) {
 			return false;
 		}
 
-		this.#time = time;
+		this._time = time;
+		this._isUpdating = true;
 
-		this.#tweens.forEach(t => this.#updateTween(t));
-		
-		if (this.#deadTweens.length > 0) {
-			this.#deadTweens.forEach(t => this.#removeTween(t));
-			this.#deadTweens.length = 0;
+		let activeCount = 0;
+
+		// Optimization: Single-pass compaction.
+		// Iterate only up to the initial length to avoid infinite loops 
+		// if tweens add more tweens indefinitely.
+		for (let i = 0; i < initialLen; i++) {
+			const tween = tweens[i];
+			
+			// Check if tween is valid (not removed via null) AND is still running after update
+			if (tween !== null && tween.update(time)) {
+				// Tween is alive. 
+				// If we have encountered dead/removed tweens before, shift this one down.
+				if (i !== activeCount) {
+					tweens[activeCount] = tween;
+				}
+				activeCount++;
+			}
+			// If tween is null or update() returns false, we simply don't increment activeCount,
+			// effectively dropping it from the compacted list.
 		}
+
+		this._isUpdating = false;
+
+		// Handle new tweens added *during* the loop (e.g., inside onStart/onUpdate callbacks).
+		// These were pushed to the end of the array (indices >= initialLen).
+		// We need to shift them down to the new end of the compacted list.
+		const finalLen = tweens.length;
+		if (finalLen > initialLen) {
+			for (let i = initialLen; i < finalLen; i++) {
+				tweens[activeCount++] = tweens[i];
+			}
+		}
+
+		// Truncate the array to the count of actual active tweens
+		tweens.length = activeCount;
 
 		return true;
 	}
 
-	static setBezierIterations(x: number) {
+	public static setBezierIterations(x: number) {
 		this.bezierIterations = x;
 	}
 
-	static setBezierCacheSize(x: number) {
+	public static setBezierCacheSize(x: number) {
 		this.bezierCacheSize = x;
 	}
 
-	static getEasingFromCache(key: string) {
-		if (!this.#easingCache.has(key)) {
-			this.#easingCache.set(key, new CubicBezier(key));
+	public static getEasingFromCache(key: string) {
+		if (!this._easingCache.has(key)) {
+			this._easingCache.set(key, new CubicBezier(key));
 		}
 
-		return this.#easingCache.get(key) as CubicBezier;
+		return this._easingCache.get(key) as CubicBezier;
 	}
-
 }

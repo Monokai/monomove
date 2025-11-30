@@ -18,110 +18,106 @@ interface EasingOptions {
 	cacheSize?: number;
 }
 
-// Utility type to safely access properties of T when we know they are numbers (from TweenableObject constraint)
-type TweenValues<T> = Record<keyof T, number>;
-
 export default class Tween<T extends TweenableObject = TweenableObject> implements ITween {
 
-	durationMS: number;
-	isPlaying: boolean;
-	delayTime: number;
-	startTime: number | null;
-	easingFunction: EasingFunction;
-	object: T;
-	value: number;
-	
-	onTimelineInCallback: TimelineCallback<T> | null = null;
-	onTimelineOutCallback: TimelineCallback<T> | null = null;
-	onTimelineVisibleCallback: TimelineCallback<T> | null = null;
-	onTimelineInvisibleCallback: TimelineCallback<T> | null = null;
-	
-	timelineIn = false;
-	previousTimelineIn = false;
-	timelineVisible = false;
-	previousTimelineVisible = false;
+	public durationMS: number;
+	public isPlaying: boolean;
+	public delayTime: number;
+	public startTime: number | null;
+	public easingFunction: EasingFunction;
+	public object: T;
+	public value: number;
 
-	#onUpdateCallback: UpdateCallback<T> | null;
-	#valuesEnd: Partial<T>;
-	#valuesEndEntries: (string | number)[];
-	#loopNum: number;
-	#loopCount: number;
-	#onLoopCallback: LoopCallback<T> | null;
-	#onCompleteCallback: CompleteCallback<T> | null;
-	#onStartCallback: StartCallback<T> | null;
-	#onStartCallbackFired: boolean;
-	#previousTime: number | null;
-	#elapsed: number;
-	#valuesStart: Record<string, number>;
-	#previousUpdateValue: number | null;
+	public onTimelineInCallback: TimelineCallback<T> | null = null;
+	public onTimelineOutCallback: TimelineCallback<T> | null = null;
+	public onTimelineVisibleCallback: TimelineCallback<T> | null = null;
+	public onTimelineInvisibleCallback: TimelineCallback<T> | null = null;
+	
+	public timelineIn = false;
+	public previousTimelineIn = false;
+	public timelineVisible = false;
+	public previousTimelineVisible = false;
+
+	private _onUpdateCallback: UpdateCallback<T> | null;
+	private _onLoopCallback: LoopCallback<T> | null;
+	private _onCompleteCallback: CompleteCallback<T> | null;
+	private _onStartCallback: StartCallback<T> | null;
+	
+	private _valuesEnd: Partial<T>;
+	private _valuesStart: Record<string, number>;
+
+	// OPTIMIZATION: Structure of Arrays (SoA)
+	private _propKeys: (keyof T)[];
+	private _propStartValues: number[];
+	private _propChangeValues: number[];
+	
+	private _loopNum: number;
+	private _loopCount: number;
+	private _onStartCallbackFired: boolean;
+	private _previousTime: number | null;
+	private _elapsed: number;
+	private _previousUpdateValue: number | null;
+	private _inverseDuration: number;
 
 	constructor(object: T | UpdateCallback<T> = {} as T, duration: number = 1) {
-		if (typeof object === 'function' && duration !== undefined) {
-			// If function is passed, we simulate a dummy object { value: 0 }
-			this.object = {
-				value: 0
-			} as unknown as T;
-
-			this.#onUpdateCallback = object as unknown as UpdateCallback<T>;
-
-			this.#valuesEnd = {
-				value: 1
-			} as unknown as Partial<T>;
-
-			this.durationMS = duration * 1000;
-
-			this.#valuesStart = {
-				value: 0
-			};
-
-			// Safely access 'value' from valuesEnd, asserting structure
-			this.#valuesEndEntries = ['value', (this.#valuesEnd as Record<string, number>)['value']];
-		} else {
-			this.object = object as T;
-			this.#valuesEnd = {};
-			this.#onUpdateCallback = null;
-			this.durationMS = duration * 1000;
-
-			this.#valuesStart = {};
-			this.#valuesEndEntries = [];
-		}
-
+		this.durationMS = duration * 1000;
+		this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		this.easingFunction = k => k;
 		this.value = 0;
 		this.delayTime = 0;
 		this.isPlaying = false;
 		this.startTime = null;
 
-		this.#loopNum = 0;
-		this.#loopCount = 0;
-		this.#onLoopCallback = null;
-		this.#onCompleteCallback = null;
-		this.#onStartCallback = null;
-		this.#onStartCallbackFired = false;
-		this.#previousTime = null;
-		this.#elapsed = 0;
-		this.#previousUpdateValue = null;
+		this._loopNum = 0;
+		this._loopCount = 0;
+		this._onLoopCallback = null;
+		this._onCompleteCallback = null;
+		this._onStartCallback = null;
+		this._onStartCallbackFired = false;
+		this._previousTime = null;
+		this._elapsed = 0;
+		this._previousUpdateValue = null;
+		
+		this._valuesStart = {};
+		
+		// Initialize parallel arrays
+		this._propKeys = [];
+		this._propStartValues = [];
+		this._propChangeValues = [];
 
-		// Initialize start values
-		Object.keys(this.object).forEach(key => {
-			const val = this.object[key];
-			if (typeof val === 'number') {
-				this.#valuesStart[key] = val;
+		if (typeof object === 'function' && duration !== undefined) {
+			this.object = { value: 0 } as unknown as T;
+			this._onUpdateCallback = object as unknown as UpdateCallback<T>;
+			this._valuesEnd = { value: 1 } as unknown as Partial<T>;
+			this._valuesStart['value'] = 0;
+		} else {
+			this.object = object as T;
+			this._onUpdateCallback = null;
+			this._valuesEnd = {};
+			
+			const keys = Object.keys(this.object);
+			for (let i = 0; i < keys.length; i++) {
+				const key = keys[i];
+				const val = this.object[key];
+				if (typeof val === 'number') {
+					this._valuesStart[key] = val;
+				}
 			}
-		});
+		}
 	}
 
 	from(properties: Partial<T>) {
-		Object.keys(properties).forEach(key => {
+		for (const key in properties) {
 			const val = properties[key];
 			if (typeof val === 'number') {
-				// Asserting val is correct type for T[keyof T] which is number
-				this.object[key as keyof T] = val as T[keyof T];
+				// Assert that the number value is assignable to the generic type property
+				this.object[key as keyof T] = val as unknown as T[keyof T];
+				this._valuesStart[key] = val;
 			}
-		});
+		}
 
-		if (this.#onUpdateCallback !== null) {
-			this.#onUpdateCallback(this.object, this.value, 0);
+		if (this._onUpdateCallback !== null) {
+			this._onUpdateCallback(this.object, this.value, 0);
 		}
 
 		return this;
@@ -130,29 +126,25 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	to(properties: Partial<T>, duration?: number) {
 		if (duration !== undefined) {
 			this.durationMS = duration * 1000;
+			this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		}
 
-		this.#valuesEnd = properties;
-		this.#valuesEndEntries.length = 0;
-
+		this._valuesEnd = properties;
 		return this;
 	}
 
 	duration(duration: number) {
 		this.durationMS = duration * 1000;
-
+		this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		return this;
 	}
 
 	rewind() {
-		Object.keys(this.object).forEach(key => {
-			if (key in this.#valuesStart) {
-				this.object[key as keyof T] = this.#valuesStart[key] as T[keyof T];
-			}
-		});
-
+		for (const key in this._valuesStart) {
+			// Restore start values to object
+			this.object[key as keyof T] = this._valuesStart[key] as unknown as T[keyof T];
+		}
 		this.value = this.easingFunction(0);
-
 		return this;
 	}
 
@@ -161,39 +153,65 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	}
 
 	loop(num: number = Infinity) {
-		this.#loopNum = num;
-		this.#loopCount = num;
-
+		this._loopNum = num;
+		this._loopCount = num;
 		return this;
 	}
 
 	setLoopCallback(callback: LoopCallback<T>) {
-		this.#onLoopCallback = callback;
+		this._onLoopCallback = callback;
 		return this;
 	}
 
 	startTween(time: number = RenderLoop.getTime()) {
 		const wasPlaying = this.isPlaying;
 
-		this.#elapsed = 0;
-		this.#onStartCallbackFired = false;
-
+		this._elapsed = 0;
+		this._onStartCallbackFired = false;
 		this.isPlaying = true;
 		this.startTime = time + this.delayTime;
 
-		if (this.#valuesEndEntries.length === 0) {
-			Object.keys(this.#valuesEnd).forEach(key => {
-				const k = key as keyof T;
-				const v = this.#valuesEnd[k];
-				if (typeof v === 'number') {
-					// We know this.object[k] is a number because T extends TweenableObject
-					this.#valuesStart[key] = this.object[k] as number;
-					this.#valuesEndEntries.push(key, v);
-				}
-			});
+		// Reset parallel arrays
+		this._propKeys.length = 0;
+		this._propStartValues.length = 0;
+		this._propChangeValues.length = 0;
+
+		// Populate valuesEnd if empty
+		let hasEndValues = false;
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		for (const _ in this._valuesEnd) { hasEndValues = true; break; }
+
+		if (!hasEndValues) {
+			 for (const key in this.object) {
+				 if (key in this._valuesStart) {
+					 const k = key as keyof T;
+					 const val = this.object[k];
+					 if (typeof val === 'number') {
+						// Safe assignment: val comes from T[k], _valuesEnd is Partial<T>
+						this._valuesEnd[k] = val;
+					 }
+				 }
+			 }
 		}
 
-		if (this.durationMS === 0 && this.#loopNum === 0 && this.delayTime === 0) {
+		// Pre-calculate deltas and populate parallel arrays
+		for (const key in this._valuesEnd) {
+			const end = this._valuesEnd[key];
+			
+			let start = this._valuesStart[key];
+			if (start === undefined && typeof this.object[key] === 'number') {
+				start = this.object[key];
+				this._valuesStart[key] = start;
+			}
+
+			if (typeof start === 'number' && typeof end === 'number') {
+				this._propKeys.push(key as keyof T);
+				this._propStartValues.push(start);
+				this._propChangeValues.push(end - start);
+			}
+		}
+
+		if (this.durationMS === 0 && this._loopNum === 0 && this.delayTime === 0) {
 			this.update(time);
 			this.isPlaying = false;
 		} else if (!wasPlaying) {
@@ -205,16 +223,14 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	}
 
 	start(time?: number): Promise<this> {
-		const onComplete = this.#onCompleteCallback;
+		const onComplete = this._onCompleteCallback;
 
 		return new Promise(resolve => {
-			this.#onCompleteCallback = (obj, t) => {
+			this._onCompleteCallback = (obj, t) => {
 				if (onComplete) {
 					onComplete(obj, t);
 				}
-
-				this.#onCompleteCallback = onComplete;
-
+				this._onCompleteCallback = onComplete;
 				resolve(this);
 			};
 
@@ -223,20 +239,14 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	}
 
 	stop() {
-		if (!this.isPlaying) {
-			return this;
-		}
-
+		if (!this.isPlaying) return this;
 		this.isPlaying = false;
-
 		TweenManager.remove(this);
-
 		return this;
 	}
 
 	delay(amount: number) {
 		this.delayTime = amount * 1000;
-
 		return this;
 	}
 
@@ -246,26 +256,16 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	}: EasingOptions = {}) {
 		let easing: EasingType = _easing;
 
-		if (!easing) {
-			return this;
-		}
+		if (!easing) return this;
 
 		if (typeof easing === 'string') {
 			easing = TweenManager.getEasingFromCache(easing);
 		}
 
-		// Check if easing is a BezierLike object (has get method)
-		// using a type guard or check
 		if (typeof easing === 'object' && easing !== null && 'get' in easing) {
 			const bezier = easing as BezierLike;
-			if (iterations && bezier.setIterations) {
-				bezier.setIterations(iterations);
-			}
-
-			if (cacheSize && bezier.setCacheSize) {
-				bezier.setCacheSize(cacheSize);
-			}
-
+			if (iterations && bezier.setIterations) bezier.setIterations(iterations);
+			if (cacheSize && bezier.setCacheSize) bezier.setCacheSize(cacheSize);
 			this.easingFunction = bezier.get.bind(bezier);
 		} else {
 			this.easingFunction = easing as EasingFunction;
@@ -275,80 +275,75 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 	}
 
 	onStart(callback: StartCallback<T>) {
-		this.#onStartCallback = callback;
-
+		this._onStartCallback = callback;
 		return this;
 	}
 
 	onUpdate(callback: UpdateCallback<T>) {
-		this.#onUpdateCallback = callback;
-
+		this._onUpdateCallback = callback;
 		return this;
 	}
 
 	onComplete(callback: CompleteCallback<T> | null = null) {
-		this.#onCompleteCallback = callback;
-
+		this._onCompleteCallback = callback;
 		return this;
 	}
 
 	onTimelineIn(callback: TimelineCallback<T>) {
 		this.onTimelineInCallback = callback;
-
 		return this;
 	}
 
 	onTimelineOut(callback: TimelineCallback<T>) {
 		this.onTimelineOutCallback = callback;
-
 		return this;
 	}
 
 	onTimelineVisible(callback: TimelineCallback<T>) {
 		this.onTimelineVisibleCallback = callback;
-
 		return this;
 	}
 
 	onTimelineInvisible(callback: TimelineCallback<T>) {
 		this.onTimelineInvisibleCallback = callback;
-
 		return this;
 	}
 
 	setPosition(position: number) {
-		const normalized = Math.max(0, Math.min(1, position));
+		const normalized = position < 0 ? 0 : (position > 1 ? 1 : position);
 		this.value = this.easingFunction(normalized);
 		this.updateAllValues();
 	}
 
 	updateAllValues(delta: number = 0) {
-		if (this.value === this.#previousUpdateValue) {
+		if (this.value === this._previousUpdateValue) {
 			return;
 		}
 
-		for (let i = 0; i < this.#valuesEndEntries.length; i += 2) {
-			this.#updateValue(this.#valuesEndEntries[i] as string, this.#valuesEndEntries[i + 1] as number);
+		const len = this._propKeys.length;
+		const keys = this._propKeys;
+		const starts = this._propStartValues;
+		const changes = this._propChangeValues;
+		const val = this.value;
+		const obj = this.object;
+
+		for (let i = 0; i < len; i++) {
+			// We cast through unknown to assign the calculated number to the generic property.
+			// This is safe because we verified 'start' and 'end' were numbers during setup,
+			// and TweenableObject ensures keys map to numbers.
+			obj[keys[i]] = (starts[i] + changes[i] * val) as unknown as T[keyof T];
 		}
 
-		if (this.#onUpdateCallback !== null) {
-			this.#onUpdateCallback(this.object, this.value, delta);
+		if (this._onUpdateCallback !== null) {
+			this._onUpdateCallback(obj, val, delta);
 		}
 
-		this.#previousUpdateValue = this.value;
+		this._previousUpdateValue = val;
 	}
 
 	invalidate() {
-		this.#previousUpdateValue = null;
-
+		this._previousUpdateValue = null;
 		return this;
-	}
-
-	#updateValue(key: string, value: number) {
-		const start = this.#valuesStart[key];
-
-		// Safe casting to number/T[keyof T] because we know the structure of T
-		this.object[key as keyof T] = (start + (value - start) * this.value) as T[keyof T];
 	}
 
 	update(time: number) {
@@ -358,43 +353,44 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 			return true;
 		}
 
-		if (this.#onStartCallbackFired === false) {
-			if (this.#onStartCallback !== null) {
-				this.#onStartCallback(this.object);
+		if (this._onStartCallbackFired === false) {
+			if (this._onStartCallback !== null) {
+				this._onStartCallback(this.object);
 			}
-
-			this.#onStartCallbackFired = true;
+			this._onStartCallbackFired = true;
 			RenderLoop.trigger();
 		}
 
-		this.#elapsed = time - this.startTime;
+		this._elapsed = time - this.startTime;
 
-		const normalizedElapsed = this.durationMS === 0 ? 1 : Math.min(this.#elapsed / this.durationMS, 1);
+		const normalizedElapsed = this.durationMS === 0 
+			? 1 
+			: (this._elapsed * this._inverseDuration);
+			
+		const clamped = normalizedElapsed > 1 ? 1 : normalizedElapsed;
 
-		this.value = this.easingFunction(normalizedElapsed);
+		this.value = this.easingFunction(clamped);
 
-		if (this.#previousTime === null) {
-			this.#previousTime = time;
+		if (this._previousTime === null) {
+			this._previousTime = time;
 		}
 
-		const delta = time - this.#previousTime;
-
-		this.#previousTime = time;
+		const delta = time - this._previousTime;
+		this._previousTime = time;
 
 		this.updateAllValues(delta);
 
-		if (normalizedElapsed === 1) {
+		if (clamped === 1) {
 			const tempStartTime = this.startTime;
 
-			if (this.#loopCount > 0) {
-				if (this.#onLoopCallback) {
-					this.#onLoopCallback(this.object, this.#loopNum - this.#loopCount);
+			if (this._loopCount > 0) {
+				if (this._onLoopCallback) {
+					this._onLoopCallback(this.object, this._loopNum - this._loopCount);
 				}
-
-				this.#loopCount--;
+				this._loopCount--;
 				this.restart();
-			} else if (this.#onCompleteCallback && this.isPlaying) {
-				this.#onCompleteCallback(this.object, time - this.startTime);
+			} else if (this._onCompleteCallback && this.isPlaying) {
+				this._onCompleteCallback(this.object, time - this.startTime);
 			}
 
 			this.isPlaying = !(tempStartTime === this.startTime);
@@ -404,5 +400,4 @@ export default class Tween<T extends TweenableObject = TweenableObject> implemen
 
 		return true;
 	}
-
 }
