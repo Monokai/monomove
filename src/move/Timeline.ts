@@ -1,18 +1,20 @@
-import AbstractTimeline from './AbstractTimeline.js';
+import AbstractTimeline, { TimelineOptions } from './AbstractTimeline.js';
 import clamp from '../math/clamp.js';
+import Tween from './Tween.js';
+import type { ITween } from '../types.js';
 
 export default class Timeline extends AbstractTimeline {
 
-	constructor(tweens, options) {
+	constructor(tweens: ITween[], options?: TimelineOptions) {
 		super(options);
 
-		this.tweens = tweens.reduce((a, o) => this.#addTween(a, o, this.delay), []).sort((a, b) => a.delayTime - b.delayTime);
+		this.tweens = tweens.reduce((a, o) => this.#addTween(a, o, this.delayTime / 1000), [] as ITween[]).sort((a, b) => a.delayTime - b.delayTime);
 		this.totalTime = this.tweens.reduce((total, tween) => Math.max(total, tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
-	#addTween(a, o, delay = 0) {
-		if (o instanceof this.constructor) {
-			o.tweens.forEach(b => this.#addTween(a, b, delay + o.delay));
+	#addTween(a: ITween[], o: ITween, delay = 0) {
+		if (o instanceof Timeline) {
+			o.tweens.forEach(b => this.#addTween(a, b, delay + (o.delayTime / 1000)));
 		} else {
 			if (delay) {
 				o.delayTime += delay * 1000;
@@ -24,7 +26,7 @@ export default class Timeline extends AbstractTimeline {
 		return a;
 	}
 
-	setPosition(position) {
+	setPosition(position: number) {
 		const time = clamp(position, 0, 1) * this.totalTime;
 
 		// reset all tweens that start later than position
@@ -32,19 +34,21 @@ export default class Timeline extends AbstractTimeline {
 			const tween = this.tweens[i];
 
 			if (tween.totalTime !== undefined) {
-				if (tween.delay * 1000 > time) {
+				if (tween.delayTime > time) {
 					tween.setPosition(0);
 				}
-			} else if (tween.delayTime > time) {
-				tween.value = 0;
+			} else if (tween instanceof Tween) {
+				if (tween.delayTime > time) {
+					tween.value = 0;
 
-				Timeline.setTweenVisibility(tween, false);
-				Timeline.setTweenIn(tween, false);
+					Timeline.setTweenVisibility(tween, false);
+					Timeline.setTweenIn(tween, false);
 
-				tween.invalidate();
-				tween.updateAllValues();
-			} else {
-				break;
+					tween.invalidate();
+					tween.updateAllValues();
+				} else {
+					break;
+				}
 			}
 		}
 
@@ -53,8 +57,8 @@ export default class Timeline extends AbstractTimeline {
 
 			if (tween.totalTime !== undefined) {
 				const tweenDuration = tween.totalTime;
-				const tweenTime = tween.delay * 1000 + tweenDuration;
-				const tweenStartTime = tween.delay * 1000;
+				const tweenTime = tween.delayTime + tweenDuration;
+				const tweenStartTime = tween.delayTime;
 
 				if (tweenTime <= time) {
 					tween.setPosition(1);
@@ -65,7 +69,7 @@ export default class Timeline extends AbstractTimeline {
 				} else {
 					break;
 				}
-			} else {
+			} else if (tween instanceof Tween) {
 				const tweenDuration = tween.durationMS;
 				const tweenTime = tween.delayTime + tweenDuration;
 				const tweenStartTime = tween.delayTime;
@@ -94,8 +98,9 @@ export default class Timeline extends AbstractTimeline {
 		this.previousPosition = position;
 	}
 
-	update() {
+	update(time?: number) {
 		this.setPosition(this.previousPosition || 0);
+		return true;
 	}
 
 }

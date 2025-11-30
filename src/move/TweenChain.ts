@@ -1,21 +1,23 @@
-import AbstractTimeline from './AbstractTimeline.js';
+import AbstractTimeline, { TimelineOptions } from './AbstractTimeline.js';
 import clamp from '../math/clamp.js';
+import Tween from './Tween.js';
+import type { ITween } from '../types.js';
 
 export default class TweenChain extends AbstractTimeline {
 
-	constructor(tweens, options) {
+	constructor(tweens: (ITween)[], options?: TimelineOptions) {
 		super(options);
 
-		this.tweens = tweens.reduce((a, o, i) => this.#addTween(a, o, i === 0 ? this.delay : 0), []);
+		this.tweens = tweens.reduce((a, o, i) => this.#addTween(a, o, i === 0 ? (this.delayTime / 1000) : 0), [] as ITween[]);
 		this.totalTime = this.tweens.reduce((total, tween) => total + (tween.totalTime ? tween.totalTime : tween.delayTime + tween.durationMS), 0);
 	}
 
-	#addTween(a, o, delay = 0) {
-		if (o instanceof this.constructor) {
+	#addTween(a: ITween[], o: ITween, delay = 0) {
+		if (o instanceof TweenChain) {
 			for (let i = 0; i < o.tweens.length; i++) {
 				const tween = o.tweens[i];
 
-				this.#addTween(a, tween, i === 0 ? o.delay : 0);
+				this.#addTween(a, tween, i === 0 ? (o.delayTime / 1000) : 0);
 			}
 		} else {
 			if (delay) {
@@ -28,7 +30,7 @@ export default class TweenChain extends AbstractTimeline {
 		return a;
 	}
 
-	setPosition(position) {
+	setPosition(position: number) {
 		const time = clamp(position, 0, 1) * this.totalTime;
 
 		let t = this.totalTime;
@@ -38,17 +40,19 @@ export default class TweenChain extends AbstractTimeline {
 			const tween = this.tweens[i];
 
 			if (tween.totalTime !== undefined) {
+				// Nested Timeline/Chain
 				const tweenDuration = tween.totalTime;
-				const tweenTime = tween.delay * 1000 + tweenDuration;
+				const tweenTime = tween.delayTime + tweenDuration;
 
 				t -= tweenTime;
 
-				const tweenStartTime = t + tween.delay * 1000;
+				const tweenStartTime = t + tween.delayTime;
 
 				if (tweenStartTime > time) {
 					tween.setPosition(0);
 				}
-			} else {
+			} else if (tween instanceof Tween) {
+				// Leaf Tween
 				const tweenDuration = tween.durationMS;
 				const tweenTime = tween.delayTime + tweenDuration;
 
@@ -77,8 +81,8 @@ export default class TweenChain extends AbstractTimeline {
 
 			if (tween.totalTime !== undefined) {
 				const tweenDuration = tween.totalTime;
-				const tweenTime = tween.delay * 1000 + tweenDuration;
-				const tweenStartTime = t + tween.delay * 1000;
+				const tweenTime = tween.delayTime + tweenDuration;
+				const tweenStartTime = t + tween.delayTime;
 
 				t += tweenTime;
 
@@ -91,7 +95,7 @@ export default class TweenChain extends AbstractTimeline {
 				} else {
 					break;
 				}
-			} else {
+			} else if (tween instanceof Tween) {
 				const tweenDuration = tween.durationMS;
 				const tweenTime = tween.delayTime + tweenDuration;
 				const tweenStartTime = t + tween.delayTime;
@@ -120,7 +124,8 @@ export default class TweenChain extends AbstractTimeline {
 		}
 	}
 
-	update() {
+	update(time?: number) {
 		this.setPosition(this.previousPosition || 0);
+		return true;
 	}
 }

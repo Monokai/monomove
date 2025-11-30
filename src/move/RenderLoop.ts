@@ -1,9 +1,16 @@
 import TweenManager from './TweenManager.js';
 
+interface RenderLoopCallback {
+	context: unknown;
+	funk: (ms: number) => boolean | void;
+	cleanUp?: () => void;
+	isPlaying: boolean;
+}
+
 export default class RenderLoop {
 
-	static #callbacks = [];
-	static #cleanUps = [];
+	static #callbacks: RenderLoopCallback[] = [];
+	static #cleanUps: RenderLoopCallback[] = [];
 	static #dirtyCallbacks = 0;
 	static #isAnimating = false;
 	static #ms = 0;
@@ -30,6 +37,7 @@ export default class RenderLoop {
 					const callback = this.#callbacks[i];
 
 					if (callback.isPlaying) {
+						// eslint-disable-next-line @typescript-eslint/ban-types
 						const isDirty = callback.funk.call(callback.context, this.#ms);
 
 						if (isDirty) {
@@ -52,7 +60,7 @@ export default class RenderLoop {
 				for (let i = 0; i < this.#cleanUps.length; i++) {
 					const callback = this.#cleanUps[i];
 
-					if (callback.isPlaying) {
+					if (callback.isPlaying && callback.cleanUp) {
 						callback.cleanUp.call(callback.context);
 					}
 				}
@@ -65,7 +73,7 @@ export default class RenderLoop {
 		animationLoop();
 	}
 
-	static stop(callback) {
+	static stop(callback?: () => void) {
 		this.#isAnimating = false;
 
 		window.cancelAnimationFrame(this.#requestID);
@@ -75,8 +83,8 @@ export default class RenderLoop {
 		}
 	}
 
-	static add(context, funk, cleanUp) {
-		const o = {
+	static add(context: unknown, funk: (ms: number) => boolean | void, cleanUp?: () => void) {
+		const o: RenderLoopCallback = {
 			context,
 			funk,
 			cleanUp,
@@ -99,8 +107,8 @@ export default class RenderLoop {
 		TweenManager.removeAll();
 	}
 
-	static remove(context, funk) {
-		const filter = f => !(f.context === context && (funk ? f.funk === funk : true));
+	static remove(context: unknown, funk?: (ms: number) => boolean | void) {
+		const filter = (f: RenderLoopCallback) => !(f.context === context && (funk ? f.funk === funk : true));
 
 		this.#callbacks = this.#callbacks.filter(filter);
 		this.#cleanUps = this.#cleanUps.filter(filter);

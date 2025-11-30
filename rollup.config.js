@@ -1,55 +1,63 @@
-import babel from '@rollup/plugin-babel';
+import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
+import { dts } from "rollup-plugin-dts";
 import terser from '@rollup/plugin-terser';
 import del from 'rollup-plugin-delete';
 
 const dist = './dist';
 const name = 'monomove';
 
-export default {
-	input: './src/index.js',
-	output: [
-		{
-			file: `${dist}/cjs/index.js`,
-			format: 'cjs',
-			esModule: true
-		},
-		{
-			format: 'esm',
-			dir: `${dist}/esm`,
-			preserveModules: true
-		},
-		{
-			file: `${dist}/umd/index.js`,
-			format: 'umd',
-			esModule: true,
-			name
+const plugins = [
+	commonjs(),
+	typescript(),
+	terser({
+		compress: {
+			drop_console: true,
+			passes: 2
 		}
-	],
-	plugins: [
-			babel({
-				exclude: 'node_modules/**',
-				presets: [
-					[
-						'@babel/env',
-						{
-							modules: false,
-							corejs: 3,
-							debug: true,
-							useBuiltIns: 'usage'
-						}
-					]
-				]
-			}),
-			commonjs(),
-			terser({
-				compress: {
-					drop_console: true,
-					passes: 2
-				}
-			}),
+	})
+]
+
+export default [
+	{
+		input: './src/index.ts',
+		output: [
+			{
+				file: `${dist}/index.cjs`,
+				format: 'cjs',
+				esModule: true
+			},
+			{
+				format: 'esm',
+				file: `${dist}/index.mjs`
+			},
+			{
+				file: `${dist}/index.umd.js`,
+				format: 'umd',
+				esModule: true,
+				name
+			}
+		],
+		plugins: [
+			...plugins,
 			del({
 				targets: `${dist}/*`
 			})
-	]
-};
+		]
+	},
+	{
+		input: [
+			'./src/index.ts'
+		],
+		output: [
+			{
+				dir: `${dist}`,
+				format: 'esm'
+			}
+		],
+		plugins: [
+			typescript(),
+			dts()
+		]
+	}
+];

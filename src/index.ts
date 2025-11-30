@@ -2,7 +2,7 @@
  * @license
  * Monomove - utilities for moving things
  * 
- * Copyright © 2021-2022 Monokai (monokai.nl)
+ * Copyright © 2021-2025 Monokai (monokai.com)
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the “Software”), to deal
@@ -32,6 +32,9 @@ export {default as Timeline} from './move/Timeline.js';
 export {default as SmoothScroller} from './move/SmoothScroller.js';
 export {default as RenderLoop} from './move/RenderLoop.js';
 
+export * from './types.js';
+
 export const Tween = MMTween;
 
-export const delay = async x => new MMTween(() => true, 0).delay(x).start();
+export const delay = async (x: number) => new MMTween(() => { return; }, 0).delay(x).start();
+

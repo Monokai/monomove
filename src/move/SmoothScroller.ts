@@ -2,6 +2,15 @@ import clamp from '../math/clamp.js';
 import smoothValue from '../math/smoothValue.js';
 import RenderLoop from './RenderLoop.js';
 import Tween from './Tween.js';
+import type { 
+	SmoothScrollOptions, 
+	ScrollAnimationEntry, 
+	SmoothScrollCallback, 
+	DOMRectLike, 
+	ScrollItemOptions,
+	SmoothScrollCallbackData,
+	EasingFunction
+} from '../types.js';
 
 let supportsPassiveListeners = false;
 
@@ -14,8 +23,10 @@ try {
 		}
 	});
 
-	window.addEventListener('a', null, options);
-	window.removeEventListener('a', null, options);
+	const funk = () => true;
+
+	window.addEventListener('a', funk, options);
+	window.removeEventListener('a', funk, options);
 } catch (e) {
 	// console.log('passive listeners not supported');
 }
@@ -25,6 +36,7 @@ export default class SmoothScroller {
 	isDown = false;
 	isLocked = false;
 	scroll = 0;
+	scrollWidth = 0;
 	scrollHeight = 0;
 
 	#pixelRatio = 1;
@@ -32,23 +44,22 @@ export default class SmoothScroller {
 	#targetScroll = 0;
 	#previousScroll = 0;
 	#height = 0;
-	#animations = [];
-	#activeAnimations = null;
-	#smoothAnimations = null;
-	#debugCanvas = null;
-	#debugContext = null;
+	#animations: ScrollAnimationEntry[] = [];
+	#activeAnimations: ScrollAnimationEntry[] | null = null;
+	#smoothAnimations: ScrollAnimationEntry[] | null = null;
+	#debugCanvas: HTMLCanvasElement | null = null;
+	#debugContext: CanvasRenderingContext2D | null = null;
 	#isAnimating = false;
-	#previousTime = 0;
 	#previousScrollWidth = 0;
 	#previousScrollHeight = 0;
-	#touchStartListener = null;
-	#scrollListener = null;
-	#wheelListener = null;
-	#mouseDownListener = null;
+	#touchStartListener: () => void;
+	#scrollListener: () => void;
+	#wheelListener: () => void;
+	#mouseDownListener: (e: Event) => void;
 	#isFirstScrollInstant = true;
 	#isTouch = false;
 	#isScrollingToAnchor = false;
-	#scrollTween = new Tween()
+	#scrollTween = new Tween<{y: number}>({y: 0})
 		.easing('0.35,0.15,0,1')
 		.onUpdate(o => {
 			window.scrollTo(0, o.y);
@@ -67,16 +78,16 @@ export default class SmoothScroller {
 		});
 
 	#passive = supportsPassiveListeners ? {passive: true} : false;
-	#touchScrollDuration = null;
-	#scrollDuration = null;
-	#container = null;
-	#content = null;
-	#listener = null;
-	#debug = null;
-	#onResizeFunk = null;
+	#touchScrollDuration = 0;
+	#scrollDuration = 0;
+	#container: HTMLElement | null = null;
+	#content: HTMLElement | null = null;
+	#listener: Window | HTMLElement;
+	#debug = false;
+	#onResizeFunk: (() => void) | null = null;
 	#totalTickTime = 0;
 	#scrollFrom = 0;
-	#easing = 0;
+	#easing: EasingFunction;
 
 	constructor({
 		container = window.document.body,
@@ -87,14 +98,14 @@ export default class SmoothScroller {
 		listener = window,
 		debug = false,
 		onResize
-	} = {}) {
-		this.#scrollDuration = scrollDuration;
+	}: SmoothScrollOptions = {}) {
+		this.#scrollDuration = scrollDuration || 0;
 		this.#container = container;
 		this.#content = content;
 		this.#listener = listener;
-		this.#debug = debug;
+		this.#debug = debug || false;
 		this.#easing = easing;
-		this.#onResizeFunk = onResize;
+		this.#onResizeFunk = onResize || null;
 
 		if (scrollFactor) {
 			throw new Error('scrollFactor is deprecated, please use scrollDuration');
@@ -114,7 +125,7 @@ export default class SmoothScroller {
 			}
 
 			this.#isAnimating = true;
-			this.#targetScroll = clamp(this.getScrollPosition(), 0, Math.round(this.scrollHeight - this.#height));
+			this.#targetScroll = clamp(this.getScrollPosition() as number, 0, Math.round(this.scrollHeight - this.#height));
 			this.#scrollFrom = this.scroll;
 			this.#totalTickTime = 0;
 		};
@@ -147,24 +158,25 @@ export default class SmoothScroller {
 				console.log('add scroll listeners');
 			}
 
-			this.#listener.addEventListener('touchstart', this.#touchStartListener, this.#passive);
-			this.#listener.addEventListener('scroll', this.#scrollListener, this.#passive);
-			this.#listener.addEventListener('mousedown', this.#mouseDownListener, this.#passive);
-			this.#listener.addEventListener('wheel', this.#wheelListener, this.#passive);
+			const opts = this.#passive as EventListenerOptions;
+			this.#listener.addEventListener('touchstart', this.#touchStartListener, opts);
+			this.#listener.addEventListener('scroll', this.#scrollListener, opts);
+			this.#listener.addEventListener('mousedown', this.#mouseDownListener, opts);
+			this.#listener.addEventListener('wheel', this.#wheelListener, opts);
 		}
 
-		if (this.#debug) {
+		if (this.#debug && this.#container) {
 			this.#debugCanvas = window.document.createElement('canvas');
 			this.#container.appendChild(this.#debugCanvas);
 		}
 
-		RenderLoop.add(this, this.#onTick);
+		RenderLoop.add(this, this.#onTick.bind(this));
 		RenderLoop.play();
 
 		this.resize();
 	}
 
-	#onTick(ms) {
+	#onTick(ms: number) {
 		if (this.isLocked) {
 			return true;
 		}
@@ -184,7 +196,7 @@ export default class SmoothScroller {
 
 		this.#smoothAnimations?.forEach(a => {
 			if (Math.abs(a.animationObject.smoothScrollValue - this.scroll) > this.#scrollThreshold) {
-				this.#triggerAnimation(a, null, ms);
+				this.#triggerAnimation(a, undefined, ms);
 			}
 		});
 
@@ -257,18 +269,16 @@ export default class SmoothScroller {
 	}
 
 	getScrollPosition() {
-		if (this.#listener.scrollY !== undefined) {
-			return this.#listener.scrollY;
+		const l = this.#listener;
+		if ('scrollY' in l) {
+			return l.scrollY;
 		}
-
-		if (this.#listener.pageYOffset !== undefined) {
-			return this.#listener.pageYOffset;
+		if ('pageYOffset' in l) {
+			return l.pageYOffset;
 		}
-
-		if (this.#listener.scrollTop !== undefined) {
-			return this.#listener.scrollTop;
+		if ('scrollTop' in l) {
+			return (l as HTMLElement).scrollTop;
 		}
-
 		return 0;
 	}
 
@@ -291,12 +301,12 @@ export default class SmoothScroller {
 			this.#debugCanvas.height = window.innerHeight * window.devicePixelRatio;
 
 			this.#debugCanvas.style.position = 'fixed';
-			this.#debugCanvas.style.left = 0;
-			this.#debugCanvas.style.top = 0;
+			this.#debugCanvas.style.left = '0';
+			this.#debugCanvas.style.top = '0';
 			this.#debugCanvas.style.width = `${window.innerWidth}px`;
 			this.#debugCanvas.style.height = `${window.innerHeight}px`;
 			this.#debugCanvas.style.pointerEvents = 'none';
-			this.#debugCanvas.style.zIndex = 9999999;
+			this.#debugCanvas.style.zIndex = '9999999';
 
 			this.#debugContext = this.#debugCanvas.getContext('2d');
 		}
@@ -309,7 +319,7 @@ export default class SmoothScroller {
 	}
 
 	triggerAnimations(all = false) {
-		if (this.#debugContext) {
+		if (this.#debugContext && this.#debugCanvas) {
 			this.#debugContext.clearRect(0, 0, this.#debugCanvas.width, this.#debugCanvas.height);
 			this.#debugContext.strokeStyle = '#f00';
 			this.#debugContext.lineWidth = 2 * this.#pixelRatio;
@@ -327,7 +337,7 @@ export default class SmoothScroller {
 		}
 	}
 
-	#triggerAnimation(a, isInView, ms) {
+	#triggerAnimation(a: ScrollAnimationEntry, isInView?: boolean, ms?: number) {
 		const box = a.box;
 
 		if (!box || !box.width || !box.height) {
@@ -386,7 +396,7 @@ export default class SmoothScroller {
 			} else if (o.previousIsInView !== undefined) {
 				o.isScrolledOut = true;
 
-				a.smoothScroll = null;
+				a.smoothScroll = undefined;
 
 				if (o.isScrolledOutOnce === undefined) {
 					o.isScrolledOutOnce = true;
@@ -437,8 +447,8 @@ export default class SmoothScroller {
 		this.#previousScroll = scroll;
 	}
 
-	add(_items, callback, options = {}) {
-		const items = _items && _items instanceof Array ? _items : [_items];
+	add(_items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options: ScrollItemOptions = {}) {
+		const items = Array.isArray(_items) ? _items : [_items];
 
 		if (options.observeIn === undefined) {
 			// null is the browser viewport
@@ -446,24 +456,37 @@ export default class SmoothScroller {
 		}
 
 		items.forEach((item, index) => {
-			const animation = {
-				animation      : callback,
+			const animation: ScrollAnimationEntry = {
+				animation: callback,
 				directionOffset: options.directionOffset || 0,
-				offset         : options.offset || 0,
-				speed          : options.speed === undefined ? 1 : options.speed,
-				smoothing      : options.smoothing,
+				offset: options.offset || 0,
+				speed: options.speed === undefined ? 1 : options.speed,
+				smoothing: options.smoothing,
 				animationObject: {
 					centerOffset: 0,
-					originalTop : 0,
-					isVisible   : true,
-					data        : options.data
+					originalTop: 0,
+					isVisible: true,
+					data: options.data,
+					item,
+					factor: 0,
+					rawFactor: 0,
+					rawBoxFactor: 0,
+					boxFactor: 0,
+					box: { left:0, top:0, width:0, height:0 },
+					scroll: 0,
+					smoothScrollValue: 0,
+					isInView: false,
+					boxIsInView: false,
+					index
 				},
 				item,
-				index
+				index,
+				observer: null,
+				box: { left:0, top:0, width:0, height:0 }
 			};
 
 			// use intersection observer to only parse active animations
-			let observer = null;
+			let observer: IntersectionObserver | null = null;
 
 			if (window.IntersectionObserver && options.observeIn !== undefined) {
 				observer = new window.IntersectionObserver(entries => {
@@ -474,9 +497,9 @@ export default class SmoothScroller {
 						this.#updateActiveAnimations();
 					});
 				}, {
-					root      : options.observeIn,
+					root: options.observeIn,
 					rootMargin: `${options.directionOffset ? options.directionOffset * 100 : options.speed ? 1 / options.speed * 100 : 0}% 0% ${options.directionOffset ? options.directionOffset * 100 : options.offset ? options.offset * 100 : options.speed ? 1 / options.speed * 100 : 0}% 0%`,
-					threshold : 0
+					threshold: 0
 				});
 
 				observer.observe(item);
@@ -493,8 +516,8 @@ export default class SmoothScroller {
 	}
 
 	#updateActiveAnimations() {
-		const hasSmoothing = a => (a.smoothing);// && (a.animationObject.smoothScrollValue === a.animationObject.scroll) || Math.abs(a.animationObject.smoothScrollValue - a.animationObject.scroll) > this.#scrollThreshold);
-
+		const hasSmoothing = (a: ScrollAnimationEntry) => (a.smoothing !== undefined); 
+		
 		this.#activeAnimations = this.#animations.filter(a => a.animationObject.isVisible && !hasSmoothing(a));
 		this.#smoothAnimations = this.#animations.filter(a => hasSmoothing(a));
 
@@ -503,8 +526,8 @@ export default class SmoothScroller {
 		}
 	}
 
-	remove(_items) {
-		const items = _items && _items instanceof Array ? _items : [_items];
+	remove(_items: HTMLElement | HTMLElement[]) {
+		const items = Array.isArray(_items) ? _items : [_items];
 
 		this.#animations.forEach(a => {
 			if (items.indexOf(a.item) >= 0) {
@@ -516,8 +539,8 @@ export default class SmoothScroller {
 		this.#animations = this.#animations.filter(a => items.indexOf(a.item) < 0);
 	}
 
-	static getBox(node) {
-		let el = node;
+	static getBox(node: HTMLElement): DOMRectLike {
+		let el: HTMLElement | null = node;
 		let x = 0;
 		let y = 0;
 
@@ -534,36 +557,36 @@ export default class SmoothScroller {
 				y += el.offsetTop;
 			}
 
-			el = el.offsetParent;
+			el = el.offsetParent as HTMLElement | null;
 		} while (el);
 
 		if (node.offsetWidth === undefined) {
 			const bb = node.getBoundingClientRect();
 
 			return {
-				left  : x,
-				top   : y,
-				width : bb.width,
+				left: x,
+				top: y,
+				width: bb.width,
 				height: bb.height
 			};
 		}
 
 		return {
-			left  : x,
-			top   : y,
-			width : node.offsetWidth,
+			left: x,
+			top: y,
+			width: node.offsetWidth,
 			height: node.offsetHeight
 		};
 	}
 
-	#initBox(a) {
+	#initBox(a: ScrollAnimationEntry) {
 		a.box = SmoothScroller.getBox(a.item);
 		a.animationObject.centerOffset = (this.#height - a.box.height) * 0.5;
 		a.animationObject.originalTop = a.box.top;
-		a.animationObject.scroll = a.animationObject.targetScroll = this.#targetScroll;
+		a.animationObject.scroll = a.animationObject.smoothScrollValue = this.#targetScroll;
 	}
 
-	scrollTo(position = 0, time = null) {
+	scrollTo(position = 0, time: number | null = null) {
 		return this.#scrollTween
 			.from({
 				y: this.scroll
@@ -574,7 +597,7 @@ export default class SmoothScroller {
 			.start();
 	}
 
-	scrollToElement(node, offset = 0, time = null) {
+	scrollToElement(node: HTMLElement, offset = 0, time: number | null = null) {
 		const box = SmoothScroller.getBox(node);
 
 		return this.scrollTo(box.top + offset, time);
@@ -598,7 +621,7 @@ export default class SmoothScroller {
 		window.scrollTo(0, this.scroll);
 	}
 
-	setContent(content) {
+	setContent(content: HTMLElement) {
 		this.#content = content;
 		this.resize();
 	}
@@ -607,16 +630,16 @@ export default class SmoothScroller {
 		this.#content = null;
 	}
 
-	setScrollDuration(value) {
+	setScrollDuration(value: number) {
 		this.#scrollDuration = value;
 	}
 
-	setTouchScrollDuration(value) {
+	setTouchScrollDuration(value: number) {
 		this.#touchScrollDuration = value;
 	}
 
 	destroy() {
-		if (this.#debug) {
+		if (this.#debugCanvas) {
 			this.#debugCanvas.remove();
 		}
 
@@ -625,10 +648,11 @@ export default class SmoothScroller {
 				console.log('remove scroll listeners');
 			}
 
-			this.#listener.removeEventListener('touchstart', this.#touchStartListener, this.#passive);
-			this.#listener.removeEventListener('wheel', this.#wheelListener, this.#passive);
-			this.#listener.removeEventListener('mousedown', this.#mouseDownListener, this.#passive);
-			this.#listener.removeEventListener('scroll', this.#scrollListener, this.#passive);
+			const opts = this.#passive as EventListenerOptions;
+			this.#listener.removeEventListener('touchstart', this.#touchStartListener, opts);
+			this.#listener.removeEventListener('wheel', this.#wheelListener, opts);
+			this.#listener.removeEventListener('mousedown', this.#mouseDownListener, opts);
+			this.#listener.removeEventListener('scroll', this.#scrollListener, opts);
 		}
 
 		this.#animations.forEach(a => {

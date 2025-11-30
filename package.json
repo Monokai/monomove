@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "1.8.11",
+  "version": "2.0.0",
   "author": "Monokai",
   "license": "MIT",
   "description": "utilities for moving things on screen",
@@ -9,26 +9,25 @@
     "url": "https://github.com/monokai/monomove.git"
   },
   "type": "module",
-  "sideEffects": false,
-  "main": "./dist/umd/index.js",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
-    "./source": "./src/index.js"
+    "./source": "./src/index.ts"
   },
   "files": [
     "./dist",
     "./src"
   ],
-  "browserslist": [
-    ">1%, last 2 versions and > 0.05%, not dead"
-  ],
   "scripts": {
     "build": "rollup -c",
     "build:production": "rollup -c --environment BUILD:production",
-    "watch": "rollup src/index.js --format umd --name monomove --watch --output.file=dist/umd/index.js"
+    "watch": "rollup -c --watch"
   },
   "keywords": [
     "move",
@@ -37,20 +36,18 @@
     "smooth"
   ],
   "devDependencies": {
-    "@babel/preset-env": "^7.24.6",
-    "@clarifynl/eslint-config-clarify": "^0.14.0",
-    "@rollup/plugin-babel": "^6.0.4",
-    "@rollup/plugin-commonjs": "^25.0.8",
+    "@eslint/js": "^9.39.1",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
-    "rollup": "^4.18.0",
-    "rollup-plugin-delete": "^2.0.0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "@clarifynl/clarify"
-    ],
-    "rules": {
-      "import/extensions": 0
-    }
+    "@rollup/plugin-typescript": "^12.3.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "rollup": "^4.52.5",
+    "rollup-plugin-delete": "^3.0.1",
+    "rollup-plugin-dts": "^6.2.3",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
   }
 }
