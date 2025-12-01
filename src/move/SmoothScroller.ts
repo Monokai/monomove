@@ -22,7 +22,7 @@ if (typeof window !== 'undefined') {
 		}) as unknown as AddEventListenerOptions;
 		window.addEventListener('test', () => {}, options);
 		window.removeEventListener('test', () => {}, options);
-	} catch (e) {
+	} catch {
 		// ignore
 	}
 }

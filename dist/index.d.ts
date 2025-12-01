@@ -256,6 +256,9 @@ declare class SmoothScroller {
 declare class CubicBezier implements BezierLike {
     private _iterations;
     private _cacheSize;
+    private _newtonRaphsonMinSlope;
+    private _subdivisionPrecision;
+    private _subdivisionIterations;
     private _cachedValueStepSize;
     private _cachedValues;
     private _x1;
@@ -263,9 +266,11 @@ declare class CubicBezier implements BezierLike {
     private _x2;
     private _y2;
     private _isPreComputed;
+    private _precision;
     private static _calculate;
     private static _getSlope;
     constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
+    private _binarySubdivide;
     private _newtonRaphson;
     private _preCompute;
     private _getT;

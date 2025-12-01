@@ -1,4 +1,4 @@
-export const BEZIER_PRESETS: Record<string, number[]> = {
+export const BezierPresets: Record<string, number[]> = {
 	// CSS Standards
 	'linear': [0, 0, 1, 1],
 	'ease': [0.25, 0.1, 0.25, 1],

@@ -1,9 +1,12 @@
-import { BEZIER_PRESETS } from './BezierPresets.js';
+import { BezierPresets } from './BezierPresets.js';
 import type { BezierLike } from '../types.js';
 
 export class CubicBezier implements BezierLike {
-	private _iterations: number;
-	private _cacheSize: number;
+	private _iterations = 4;
+	private _cacheSize = 11;
+	private _newtonRaphsonMinSlope = 0.001;
+	private _subdivisionPrecision = 0.0000001;
+	private _subdivisionIterations = 10;
 	private _cachedValueStepSize = 0;
 	private _cachedValues: number[] = [0];
 	private _x1: number;
@@ -11,6 +14,7 @@ export class CubicBezier implements BezierLike {
 	private _x2: number;
 	private _y2: number;
 	private _isPreComputed: boolean;
+	private _precision = 1e-5;
 
 	private static _calculate(t: number, a: number, b: number): number {
 		return (((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t + 3 * a) * t;
@@ -21,12 +25,10 @@ export class CubicBezier implements BezierLike {
 	}
 
 	constructor(x1: number | string, y1 = 0, x2 = 0, y2 = 0) {
-		this._iterations = 16;
-		this._cacheSize = 11;
 		this.setCacheSize(this._cacheSize);
 
 		if (typeof x1 === 'string') {
-			const preset = BEZIER_PRESETS[x1];
+			const preset = BezierPresets[x1];
 			if (preset) {
 				this._x1 = preset[0];
 				this._y1 = preset[1];
@@ -49,12 +51,42 @@ export class CubicBezier implements BezierLike {
 		this._isPreComputed = false;
 	}
 
+	private _binarySubdivide(aX: number, aA: number, aB: number, mX1: number, mX2: number): number {
+		let currentX: number;
+		let currentT: number;
+		let i = 0;
+
+		do {
+			currentT = aA + (aB - aA) / 2.0;
+			currentX = CubicBezier._calculate(currentT, mX1, mX2) - aX;
+			if (currentX > 0.0) {
+				aB = currentT;
+			} else {
+				aA = currentT;
+			}
+		} while (
+			Math.abs(currentX) > this._subdivisionPrecision &&
+			++i < this._subdivisionIterations
+		);
+
+		return currentT;
+	}
+
 	private _newtonRaphson(a: number, _t: number, x1: number, x2: number): number {
 		let t = _t;
+
 		for (let i = 0; i < this._iterations; ++i) {
 			const slope = CubicBezier._getSlope(t, x1, x2);
-			if (slope === 0) return t;
+			if (slope === 0) {
+				return t;
+			}
+
 			const x = CubicBezier._calculate(t, x1, x2) - a;
+
+			if (Math.abs(x) < this._precision) {
+				return t;
+			}
+
 			t -= x / slope;
 		}
 		return t;
@@ -62,6 +94,7 @@ export class CubicBezier implements BezierLike {
 
 	private _preCompute() {
 		this._cachedValues = new Array(this._cacheSize);
+
 		for (let i = 0; i < this._cacheSize; ++i) {
 			this._cachedValues[i] = CubicBezier._calculate(
 				i * this._cachedValueStepSize,
@@ -69,25 +102,46 @@ export class CubicBezier implements BezierLike {
 				this._x2
 			);
 		}
+
 		this._isPreComputed = true;
 	}
 
-	private _getT(x: number) {
+	private _getT(x: number): number {
+		let intervalStart = 0.0;
+		let currentSample = 1;
 		const lastSample = this._cacheSize - 1;
-		let start = 0;
-		let i = 1;
 
-		for (; i !== lastSample && this._cachedValues[i] <= x; ++i) {
-			start += this._cachedValueStepSize;
+		for (
+			;
+			currentSample !== lastSample && this._cachedValues[currentSample] <= x;
+			++currentSample
+		) {
+			intervalStart += this._cachedValueStepSize;
 		}
 
-		--i;
+		--currentSample;
 
 		const dist =
-			(x - this._cachedValues[i]) / (this._cachedValues[i + 1] - this._cachedValues[i]);
-		const guessForT = start + dist * this._cachedValueStepSize;
+			(x - this._cachedValues[currentSample]) /
+			(this._cachedValues[currentSample + 1] - this._cachedValues[currentSample]);
+		const guessForT = intervalStart + dist * this._cachedValueStepSize;
 
-		return this._newtonRaphson(x, guessForT, this._x1, this._x2);
+		const initialSlope = CubicBezier._getSlope(guessForT, this._x1, this._x2);
+
+		// if slope is effectively 0, Newton-Raphson will fail. Use Binary Subdivision.
+		if (initialSlope >= this._newtonRaphsonMinSlope) {
+			return this._newtonRaphson(x, guessForT, this._x1, this._x2);
+		} else if (initialSlope === 0.0) {
+			return guessForT;
+		} else {
+			return this._binarySubdivide(
+				x,
+				intervalStart,
+				intervalStart + this._cachedValueStepSize,
+				this._x1,
+				this._x2
+			);
+		}
 	}
 
 	public get(x: number) {
