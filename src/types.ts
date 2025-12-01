@@ -8,11 +8,16 @@ export type EasingFunction = (t: number) => number;
 
 export type EasingType = string | EasingFunction | BezierLike;
 
-export interface TweenableObject {
-	[key: string]: number;
-}
+// Strict definition allows T[keyof T] to be treated as number
+export type TweenableObject = Record<string, number>;
 
-export type UpdateCallback<T> = (object: T, value: number, delta: number) => void;
+// Specific callback types
+export type ObjectUpdateCallback<T> = (object: T, value: number, delta: number) => void;
+export type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
+
+// Union type for internal storage
+export type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
+
 export type CompleteCallback<T> = (object: T, time: number) => void;
 export type LoopCallback<T> = (object: T, loopCount: number) => void;
 export type StartCallback<T> = (object: T) => void;
@@ -27,7 +32,6 @@ export interface ITween {
 	durationMS: number;
 	totalTime?: number; // Used in Timelines
 	
-	// Standardize 'delay' as a method that returns the instance (Builder pattern)
 	delay(amount: number): ITween;
 	
 	setPosition(position: number): void;
@@ -58,7 +62,7 @@ export interface SmoothScrollCallbackData {
 	centerOffset: number;
 	originalTop: number;
 	isVisible: boolean;
-	data?: unknown;
+	data?: unknown; // User data is truly unknown
 }
 
 export type SmoothScrollCallback = (data: SmoothScrollCallbackData) => void;

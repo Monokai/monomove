@@ -1,9 +1,9 @@
-import TweenManager from './TweenManager.js';
+import { TweenManager } from './TweenManager.js';
 
 type RenderCallback = (ms: number) => boolean | void;
 type CleanupCallback = () => void;
 
-export default class RenderLoop {
+export class RenderLoop {
 
 	// Structure of Arrays (SoA) for better cache locality and reduced object allocation
 	// We allow nulls internally to handle safe removals during iteration

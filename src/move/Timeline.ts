@@ -1,81 +1,79 @@
-import AbstractTimeline, { TimelineOptions } from './AbstractTimeline.js';
-import clamp from '../math/clamp.js';
-import Tween from './Tween.js';
+import { AbstractTimeline, TimelineOptions } from './AbstractTimeline.js';
+import { clamp } from '../math/clamp.js';
+import { Tween } from './Tween.js';
 import type { ITween } from '../types.js';
 
-export default class Timeline extends AbstractTimeline {
+export class Timeline extends AbstractTimeline {
 
-	// Optimization: Structure of Arrays
-	private _startTimes: number[];
-	private _durations: number[];
+	// Structure of Arrays (SoA)
+	private _startTimes: number[] = [];
+	private _durations: number[] = [];
+	private _cursor: number = 0; // Tracks the end of the timeline sequence
 
-	constructor(tweens: ITween[], options?: TimelineOptions) {
+	constructor(options?: TimelineOptions) {
 		super(options);
-
-		this._tweens = [];
-		
-		// Populate and flatten recursively
-		this._addTweens(tweens, 0);
-
-		// Sort by start time for predictable rendering order, 
-		// though logic is robust regardless.
-		// We need to pair start times with tweens before sorting.
-		// Actually, let's keep it simple: Map tweens to a temporary structure, sort, then split.
-		const items: { t: ITween; start: number; duration: number }[] = [];
-		
-		for (let i = 0; i < this._tweens.length; i++) {
-			const t = this._tweens[i];
-			const duration = t.totalTime !== undefined ? t.totalTime : t.durationMS;
-			// The actual start time is the delay property on the tween itself
-			// accumulated during the recursive add.
-			const start = t.delayTime; 
-
-			items.push({ t, start, duration });
-		}
-
-		// Sort by start time
-		items.sort((a, b) => a.start - b.start);
-
-		// Fill SoA
-		const count = items.length;
-		this._tweens = new Array(count);
-		this._startTimes = new Array(count);
-		this._durations = new Array(count);
-		
-		let maxTime = 0;
-
-		for (let i = 0; i < count; i++) {
-			this._tweens[i] = items[i].t;
-			this._startTimes[i] = items[i].start;
-			this._durations[i] = items[i].duration;
-			
-			const end = items[i].start + items[i].duration;
-			if (end > maxTime) maxTime = end;
-		}
-
-		this.totalTime = maxTime;
 	}
 
-	private _addTweens(candidates: ITween[], accumulatedDelay: number) {
-		for (let i = 0; i < candidates.length; i++) {
-			const t = candidates[i];
-			
-			if (t instanceof Timeline) {
-				// If it's another Timeline, flatten it into this one
-				// adding the current delay to its children's delays
-				this._addTweens(t._tweens, accumulatedDelay + t.delayTime);
-			} else {
-				// It's a Tween or a Chain (treated as a block)
-				// We modify its delayTime to position it absolutely in this Timeline
-				t.delayTime += accumulatedDelay;
-				this._tweens.push(t);
-			}
+	/**
+	 * Adds a tween to the end of the timeline (sequentially).
+	 * @param tween The tween or timeline to add
+	 * @param offset Optional offset in seconds relative to the current end of the timeline. 
+	 *               (e.g., -0.5 starts 0.5s before the previous tween ends).
+	 */
+	public add(tween: ITween, offset: number = 0): this {
+		const durationMS = tween.totalTime !== undefined ? tween.totalTime : tween.durationMS;
+		const offsetMS = offset * 1000;
+		
+		// Calculate start time based on current cursor (sequence tail)
+		const startTime = this._cursor + offsetMS;
+		
+		this._register(tween, startTime, durationMS);
+
+		return this;
+	}
+
+	/**
+	 * Inserts a tween at a specific absolute time.
+	 * @param time The absolute time in seconds to start the tween.
+	 * @param tween The tween to insert.
+	 */
+	public at(time: number, tween: ITween): this {
+		const durationMS = tween.totalTime !== undefined ? tween.totalTime : tween.durationMS;
+		const startTime = time * 1000;
+
+		this._register(tween, startTime, durationMS);
+
+		return this;
+	}
+
+	/**
+	 * Internal registration logic
+	 */
+	private _register(tween: ITween, startTime: number, durationMS: number) {
+		// Set the tween's internal delay to position it absolutely on the timeline
+		tween.delayTime = startTime;
+
+		this._tweens.push(tween);
+		this._startTimes.push(startTime);
+		this._durations.push(durationMS);
+
+		const endTime = startTime + durationMS;
+
+		// If this new tween extends past the current sequence cursor, update the cursor.
+		if (endTime > this._cursor) {
+			this._cursor = endTime;
+		}
+
+		// Update the total duration of the timeline
+		if (endTime > this.totalTime) {
+			this.totalTime = endTime;
 		}
 	}
 
 	public setPosition(position: number) {
 		const time = clamp(position, 0, 1) * this.totalTime;
 
+		// Hot loop: Iterate SoA
 		const count = this._tweens.length;
 		const starts = this._startTimes;
 		const durations = this._durations;
@@ -90,39 +88,33 @@ export default class Timeline extends AbstractTimeline {
 			if (time < start) {
 				// Before
 				tween.setPosition(0);
-				
 				if (tween instanceof Tween) {
 					AbstractTimeline.setTweenVisibility(tween, false);
 					AbstractTimeline.setTweenIn(tween, false);
 					tween.invalidate();
 					tween.updateAllValues();
 				}
-
 			} else if (time >= end) {
 				// After
 				tween.setPosition(1);
-				
 				if (tween instanceof Tween) {
 					AbstractTimeline.setTweenVisibility(tween, true);
 					AbstractTimeline.setTweenIn(tween, false);
 					tween.invalidate();
 					tween.updateAllValues();
 				}
-
 			} else {
 				// Active
 				const progress = duration === 0 ? 1 : (time - start) / duration;
-				const clamped = progress < 0 ? 0 : (progress > 1 ? 1 : progress);
+				
+				// Tween.setPosition expects 0-1
+				tween.setPosition(progress);
 
 				if (tween instanceof Tween) {
-					tween.setPosition(clamped); // Tween handles easing
-					
 					AbstractTimeline.setTweenVisibility(tween, true);
 					AbstractTimeline.setTweenIn(tween, true);
 					tween.invalidate();
 					tween.updateAllValues();
-				} else {
-					tween.setPosition(clamped);
 				}
 			}
 		}

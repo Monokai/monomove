@@ -1,7 +1,7 @@
-import CubicBezier from '../math/CubicBezier.js';
+import { CubicBezier } from '../math/CubicBezier.js';
 import type { ITween } from '../types.js';
 
-export default class TweenManager {
+export class TweenManager {
 
 	// (ITween | null)[] allows us to nullify slots cheaply during update loops
 	// without using splice, which shifts the whole array.

@@ -1,4 +1,4 @@
-export default class CubicBezier {
+export class CubicBezier {
 
 	#iterations: number;
 	#cacheSize: number;

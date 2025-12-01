@@ -5,10 +5,10 @@ interface BezierLike {
 }
 type EasingFunction = (t: number) => number;
 type EasingType = string | EasingFunction | BezierLike;
-interface TweenableObject {
-    [key: string]: number;
-}
-type UpdateCallback<T> = (object: T, value: number, delta: number) => void;
+type TweenableObject = Record<string, number>;
+type ObjectUpdateCallback<T> = (object: T, value: number, delta: number) => void;
+type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
+type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
 type CompleteCallback<T> = (object: T, time: number) => void;
 type LoopCallback<T> = (object: T, loopCount: number) => void;
 type StartCallback<T> = (object: T) => void;
@@ -95,13 +95,13 @@ interface EasingOptions {
     iterations?: number;
     cacheSize?: number;
 }
-declare class Tween$1<T extends TweenableObject = TweenableObject> implements ITween {
+declare class Tween<T extends TweenableObject = TweenableObject> implements ITween {
     durationMS: number;
     isPlaying: boolean;
     delayTime: number;
     startTime: number | null;
     easingFunction: EasingFunction;
-    object: T;
+    object: T | null;
     value: number;
     onTimelineInCallback: TimelineCallback<T> | null;
     onTimelineOutCallback: TimelineCallback<T> | null;
@@ -127,7 +127,15 @@ declare class Tween$1<T extends TweenableObject = TweenableObject> implements IT
     private _elapsed;
     private _previousUpdateValue;
     private _inverseDuration;
-    constructor(object?: T | UpdateCallback<T>, duration?: number);
+    private _targetIsFunction;
+    /**
+     * Create a tween that animates properties of an object.
+     */
+    constructor(object: T, duration?: number);
+    /**
+     * Create a tween that calls a function with a scalar value from 0 to 1.
+     */
+    constructor(callback: ScalarUpdateCallback, duration?: number);
     from(properties: Partial<T>): this;
     to(properties: Partial<T>, duration?: number): this;
     duration(duration: number): this;
@@ -153,38 +161,8 @@ declare class Tween$1<T extends TweenableObject = TweenableObject> implements IT
     update(time: number): boolean;
 }
 
-declare class CubicBezier {
-    #private;
-    constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
-    get(x: number): number;
-    setIterations(x: number): void;
-    setCacheSize(x: number): void;
-}
-
-declare class TweenManager {
-    private static _tweens;
-    private static _time;
-    private static _easingCache;
-    private static _isUpdating;
-    static bezierIterations: number | null;
-    static bezierCacheSize: number | null;
-    static getAll(): ITween[];
-    static removeAll(): void;
-    static add(tween: ITween): void;
-    static remove(tween: ITween): void;
-    static onlyHasDelayedTweens(time: number): boolean;
-    static onTick(time: number): boolean;
-    static setBezierIterations(x: number): void;
-    static setBezierCacheSize(x: number): void;
-    static getEasingFromCache(key: string): CubicBezier;
-}
-
 interface TimelineOptions {
     delay?: number;
-}
-interface TimelineValue {
-    value: number;
-    [key: string]: number;
 }
 declare abstract class AbstractTimeline implements ITween {
     previousPosition: number;
@@ -193,13 +171,15 @@ declare abstract class AbstractTimeline implements ITween {
     durationMS: number;
     value: number;
     easingFunction: (t: number) => number;
-    protected _driverTween: Tween$1<TimelineValue> | null;
+    protected _driverTween: Tween | null;
     protected _tweens: ITween[];
+    protected _loopNum: number;
     totalTime: number;
     constructor({ delay }?: TimelineOptions);
-    protected static setTweenIn(tween: Tween$1, isIn: boolean): void;
-    protected static setTweenVisibility(tween: Tween$1, isVisible: boolean): void;
+    protected static setTweenIn(tween: Tween, isIn: boolean): void;
+    protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
     delay(amount: number): this;
+    loop(num?: number): this;
     stop(): this;
     destroy(): void;
     start(): Promise<this>;
@@ -209,20 +189,28 @@ declare abstract class AbstractTimeline implements ITween {
     invalidate(): void;
 }
 
-declare class TweenChain extends AbstractTimeline {
-    private _startTimes;
-    private _durations;
-    constructor(tweens: ITween[], options?: TimelineOptions);
-    private _addTweens;
-    setPosition(position: number): void;
-    update(time?: number): boolean;
-}
-
 declare class Timeline extends AbstractTimeline {
     private _startTimes;
     private _durations;
-    constructor(tweens: ITween[], options?: TimelineOptions);
-    private _addTweens;
+    private _cursor;
+    constructor(options?: TimelineOptions);
+    /**
+     * Adds a tween to the end of the timeline (sequentially).
+     * @param tween The tween or timeline to add
+     * @param offset Optional offset in seconds relative to the current end of the timeline.
+     *               (e.g., -0.5 starts 0.5s before the previous tween ends).
+     */
+    add(tween: ITween, offset?: number): this;
+    /**
+     * Inserts a tween at a specific absolute time.
+     * @param time The absolute time in seconds to start the tween.
+     * @param tween The tween to insert.
+     */
+    at(time: number, tween: ITween): this;
+    /**
+     * Internal registration logic
+     */
+    private _register;
     setPosition(position: number): void;
     update(time?: number): boolean;
 }
@@ -282,10 +270,10 @@ declare class SmoothScroller {
     remove(_items: HTMLElement | HTMLElement[]): void;
     static getBox(node: HTMLElement): DOMRectLike;
     private _initBox;
-    scrollTo(position?: number, time?: number | null): Promise<Tween$1<{
+    scrollTo(position?: number, time?: number | null): Promise<Tween<{
         y: number;
     }>>;
-    scrollToElement(node: HTMLElement, offset?: number, time?: number | null): Promise<Tween$1<{
+    scrollToElement(node: HTMLElement, offset?: number, time?: number | null): Promise<Tween<{
         y: number;
     }>>;
     reset(): void;
@@ -297,6 +285,42 @@ declare class SmoothScroller {
     setScrollDuration(value: number): void;
     setTouchScrollDuration(value: number): void;
     destroy(): void;
+}
+
+declare class CubicBezier {
+    #private;
+    constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
+    get(x: number): number;
+    setIterations(x: number): void;
+    setCacheSize(x: number): void;
+}
+
+declare class TweenManager {
+    private static _tweens;
+    private static _time;
+    private static _easingCache;
+    private static _isUpdating;
+    static bezierIterations: number | null;
+    static bezierCacheSize: number | null;
+    static getAll(): ITween[];
+    static removeAll(): void;
+    static add(tween: ITween): void;
+    static remove(tween: ITween): void;
+    static onlyHasDelayedTweens(time: number): boolean;
+    static onTick(time: number): boolean;
+    static setBezierIterations(x: number): void;
+    static setBezierCacheSize(x: number): void;
+    static getEasingFromCache(key: string): CubicBezier;
+}
+
+/**
+ * @deprecated TweenChain is deprecated. Please use Timeline instead.
+ * This class maps the old array-based constructor to the new Timeline.add API.
+ */
+declare class TweenChain extends Timeline {
+    constructor(tweens: ITween[], options?: {
+        delay?: number;
+    });
 }
 
 type RenderCallback = (ms: number) => boolean | void;
@@ -331,8 +355,58 @@ declare class RenderLoop {
     static isPlaying(): boolean;
 }
 
-declare const Tween: typeof Tween$1;
-declare const delay: (x: number) => Promise<Tween$1<TweenableObject>>;
+/**
+ * @license
+ * Monomove - utilities for moving things
+ *
+ * Copyright © 2021-2025 Monokai (monokai.com)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the “Software”), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+*/
 
-export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenChain, TweenManager, delay };
-export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingType, ITween, LoopCallback, ScrollAnimationEntry, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };
+/**
+ * Animate an object's properties to specific values.
+ *
+ * @example
+ * animate(element.style, { opacity: 1, top: 100 }, 1.5, 'easeOut');
+ */
+declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<Tween<T>>;
+/**
+ * Create a new timeline sequence.
+ *
+ * @example
+ * const tl = timeline({ delay: 0.5 })
+ *   .add(tween1)
+ *   .add(tween2, -0.2); // overlap
+ * tl.start();
+ */
+declare function timeline(options?: {
+    delay?: number;
+}): Timeline;
+/**
+ * Creates a delay promise.
+ */
+declare const delay: (seconds: number) => Promise<Tween<{}>>;
+/**
+ * Helper to create a SmoothScroller instance with default settings.
+ */
+declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
+
+export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenChain, TweenManager, animate, delay, smoothScroll, timeline };
+export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingType, ITween, LoopCallback, ObjectUpdateCallback, ScalarUpdateCallback, ScrollAnimationEntry, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };

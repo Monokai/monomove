@@ -1,112 +1,107 @@
-import Tween from './Tween.js';
+import { Tween } from './Tween.js';
 import type { ITween } from '../types.js';
 
 export interface TimelineOptions {
-    delay?: number;
+	delay?: number;
 }
 
-// Internal interface for the driver tween
-interface TimelineValue {
-    value: number;
-    [key: string]: number;
-}
+export abstract class AbstractTimeline implements ITween {
 
-export default abstract class AbstractTimeline implements ITween {
+	public previousPosition: number;
+	
+	public startTime: number | null = null;
+	public delayTime: number = 0;
+	public durationMS: number = 0;
+	public value: number = 0;
+	public easingFunction: (t: number) => number = k => k;
+	
+	// Driver is just a generic tween, we don't care about T
+	protected _driverTween: Tween | null = null;
+	protected _tweens: ITween[] = [];
+	protected _loopNum: number = 0;
+	public totalTime: number = 0;
 
-    public previousPosition: number;
-    
-    // ITween interface properties
-    public startTime: number | null = null;
-    public delayTime: number = 0;
-    public durationMS: number = 0;
-    public value: number = 0;
-    public easingFunction: (t: number) => number = k => k;
-    
-    // Internal
-    protected _driverTween: Tween<TimelineValue> | null = null;
-    protected _tweens: ITween[] = [];
-    public totalTime: number = 0;
+	constructor({
+		delay = 0
+	}: TimelineOptions = {}) {
+		this.previousPosition = 0;
+		this.delayTime = delay * 1000;
+	}
 
-    constructor({
-        delay = 0
-    }: TimelineOptions = {}) {
-        this.previousPosition = 0;
-        this.delayTime = delay * 1000;
-    }
+	protected static setTweenIn(tween: Tween, isIn: boolean) {
+		tween.timelineIn = isIn;
 
-    // Static helpers to bridge Tween callbacks without exposing internal logic publicly
-    protected static setTweenIn(tween: Tween, isIn: boolean) {
-        tween.timelineIn = isIn;
+		if (tween.timelineIn !== tween.previousTimelineIn) {
+			if (isIn && tween.onTimelineInCallback && tween.object) {
+				tween.onTimelineInCallback(tween.object);
+			} else if (!isIn && tween.onTimelineOutCallback && tween.object) {
+				tween.onTimelineOutCallback(tween.object);
+			}
 
-        if (tween.timelineIn !== tween.previousTimelineIn) {
-            if (isIn && tween.onTimelineInCallback) {
-                tween.onTimelineInCallback(tween.object);
-            } else if (!isIn && tween.onTimelineOutCallback) {
-                tween.onTimelineOutCallback(tween.object);
-            }
+			tween.previousTimelineIn = tween.timelineIn;
+		}
+	}
 
-            tween.previousTimelineIn = tween.timelineIn;
-        }
-    }
+	protected static setTweenVisibility(tween: Tween, isVisible: boolean) {
+		tween.timelineVisible = isVisible;
 
-    protected static setTweenVisibility(tween: Tween, isVisible: boolean) {
-        tween.timelineVisible = isVisible;
+		if (tween.timelineVisible !== tween.previousTimelineVisible) {
+			if (isVisible && tween.onTimelineVisibleCallback && tween.object) {
+				tween.onTimelineVisibleCallback(tween.object);
+			} else if (!isVisible && tween.onTimelineInvisibleCallback && tween.object) {
+				tween.onTimelineInvisibleCallback(tween.object);
+			}
 
-        if (tween.timelineVisible !== tween.previousTimelineVisible) {
-            if (isVisible && tween.onTimelineVisibleCallback) {
-                tween.onTimelineVisibleCallback(tween.object);
-            } else if (!isVisible && tween.onTimelineInvisibleCallback) {
-                tween.onTimelineInvisibleCallback(tween.object);
-            }
+			tween.previousTimelineVisible = tween.timelineVisible;
+		}
+	}
 
-            tween.previousTimelineVisible = tween.timelineVisible;
-        }
-    }
+	public delay(amount: number): this {
+		this.delayTime = amount * 1000;
+		return this;
+	}
 
-    // ITween method implementation
-    public delay(amount: number): this {
-        this.delayTime = amount * 1000;
-        return this;
-    }
+	public loop(num: number = Infinity): this {
+		this._loopNum = num;
+		return this;
+	}
 
-    public stop() {
-        this._driverTween?.stop();
-        return this;
-    }
+	public stop() {
+		this._driverTween?.stop();
+		return this;
+	}
 
-    public destroy() {
-        this.stop();
+	public destroy() {
+		this.stop();
 
-        // Stop all children
-        for (let i = 0; i < this._tweens.length; i++) {
-            this._tweens[i].stop();
-        }
-        
-        this._tweens.length = 0;
-        this.totalTime = 0;
-    }
+		for (let i = 0; i < this._tweens.length; i++) {
+			this._tweens[i].stop();
+		}
+		
+		this._tweens.length = 0;
+		this.totalTime = 0;
+	}
 
-    public start(): Promise<this> {
-        // Create a driver tween that goes from 0 to 1 over totalTime
-        // We use the Tween class to handle the timing loop and easing
-        this._driverTween = new Tween<TimelineValue>({ value: 0 }, this.totalTime / 1000);
-        
-        // Pass the delay to the driver
-        this._driverTween.delay(this.delayTime / 1000);
-        
-        this._driverTween.onUpdate(({ value }) => {
-            this.setPosition(value);
-        });
+	public start(): Promise<this> {
+		// Scalar tween constructor overload
+		const driver = new Tween((x) => {
+			 this.setPosition(x);
+		}, this.totalTime / 1000);
+		
+		this._driverTween = driver;
+		
+		if (this._loopNum !== 0) {
+			driver.loop(this._loopNum);
+		}
 
-        // We return the promise of the driver, but chained to return 'this' timeline
-        return this._driverTween.start().then(() => this);
-    }
+		driver.delay(this.delayTime / 1000);
 
-    // Abstract methods that must be implemented by subclasses
-    public abstract setPosition(position: number): void;
-    public abstract update(time: number): boolean;
+		return driver.start().then(() => this);
+	}
 
-    // Stub for ITween compliance (Timelines calculate child values directly in setPosition)
-    public updateAllValues() {}
-    public invalidate() {}
+	public abstract setPosition(position: number): void;
+	public abstract update(time: number): boolean;
+
+	public updateAllValues() {}
+	public invalidate() {}
 }
