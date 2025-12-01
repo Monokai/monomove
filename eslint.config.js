@@ -1,3 +1,4 @@
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -10,7 +11,10 @@ export default defineConfig([{
     plugins: {
       js
     },
-    extends: ["js/recommended"],
+    extends: [
+      "js/recommended",
+      eslintPluginPrettierRecommended
+    ],
     languageOptions: {
       globals: globals.browser
     }

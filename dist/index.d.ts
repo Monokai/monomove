@@ -40,12 +40,6 @@ interface SmoothScrollCallbackData {
     isInView: boolean;
     boxIsInView: boolean;
     index: number;
-    fixedTop?: number;
-    isScrolledIn?: boolean;
-    isScrolledOut?: boolean;
-    isScrolledInOnce?: boolean;
-    isScrolledOutOnce?: boolean;
-    previousIsInView?: boolean;
     centerOffset: number;
     originalTop: number;
     isVisible: boolean;
@@ -62,7 +56,6 @@ interface SmoothScrollOptions {
     container?: HTMLElement;
     content?: HTMLElement;
     easing?: EasingFunction;
-    scrollFactor?: number | null;
     scrollDuration?: number;
     listener?: Window | HTMLElement;
     debug?: boolean;
@@ -75,20 +68,11 @@ interface ScrollItemOptions {
     speed?: number;
     smoothing?: number;
     data?: unknown;
-}
-interface ScrollAnimationEntry {
-    animation: SmoothScrollCallback;
-    directionOffset: number;
-    offset: number;
-    speed: number;
-    smoothing?: number;
-    animationObject: SmoothScrollCallbackData;
-    item: HTMLElement;
-    index: number;
-    observer: IntersectionObserver | null;
-    box: DOMRectLike;
-    smoothScroll?: (x: number, delta: number, smooth: number) => number;
-    previousFactor?: number;
+    onUpdate?: SmoothScrollCallback;
+    onScrolledIn?: (data: SmoothScrollCallbackData) => void;
+    onScrolledOut?: (data: SmoothScrollCallbackData) => void;
+    onScrolledInOnce?: (data: SmoothScrollCallbackData) => void;
+    onScrolledOutOnce?: (data: SmoothScrollCallbackData) => void;
 }
 
 interface EasingOptions {
@@ -128,13 +112,8 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     private _previousUpdateValue;
     private _inverseDuration;
     private _targetIsFunction;
-    /**
-     * Create a tween that animates properties of an object.
-     */
+    private _isInitialized;
     constructor(object: T, duration?: number);
-    /**
-     * Create a tween that calls a function with a scalar value from 0 to 1.
-     */
     constructor(callback: ScalarUpdateCallback, duration?: number);
     from(properties: Partial<T>): this;
     to(properties: Partial<T>, duration?: number): this;
@@ -143,6 +122,7 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     restart(): Promise<this>;
     loop(num?: number): this;
     setLoopCallback(callback: LoopCallback<T>): this;
+    private _init;
     startTween(time?: number): this;
     start(time?: number): Promise<this>;
     stop(): this;
@@ -171,10 +151,10 @@ declare abstract class AbstractTimeline implements ITween {
     durationMS: number;
     value: number;
     easingFunction: (t: number) => number;
+    totalTime: number;
     protected _driverTween: Tween | null;
     protected _tweens: ITween[];
     protected _loopNum: number;
-    totalTime: number;
     constructor({ delay }?: TimelineOptions);
     protected static setTweenIn(tween: Tween, isIn: boolean): void;
     protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
@@ -194,25 +174,12 @@ declare class Timeline extends AbstractTimeline {
     private _durations;
     private _cursor;
     constructor(options?: TimelineOptions);
-    /**
-     * Adds a tween to the end of the timeline (sequentially).
-     * @param tween The tween or timeline to add
-     * @param offset Optional offset in seconds relative to the current end of the timeline.
-     *               (e.g., -0.5 starts 0.5s before the previous tween ends).
-     */
     add(tween: ITween, offset?: number): this;
-    /**
-     * Inserts a tween at a specific absolute time.
-     * @param time The absolute time in seconds to start the tween.
-     * @param tween The tween to insert.
-     */
     at(time: number, tween: ITween): this;
-    /**
-     * Internal registration logic
-     */
     private _register;
+    start(): Promise<this>;
     setPosition(position: number): void;
-    update(time?: number): boolean;
+    update(): boolean;
 }
 
 declare class SmoothScroller {
@@ -226,9 +193,9 @@ declare class SmoothScroller {
     private _targetScroll;
     private _previousScroll;
     private _viewportHeight;
-    private _animations;
-    private _activeAnimations;
-    private _smoothAnimations;
+    private _items;
+    private _activeItems;
+    private _smoothItems;
     private _debugCanvas;
     private _debugContext;
     private _isAnimating;
@@ -253,7 +220,7 @@ declare class SmoothScroller {
     private _mouseDownHandler;
     private _wheelHandler;
     private _scrollHandler;
-    constructor({ container, content, easing, scrollFactor, scrollDuration, listener, debug, onResize }?: SmoothScrollOptions);
+    constructor({ container, content, easing, scrollDuration, listener, debug, onResize }?: SmoothScrollOptions);
     private _setupListeners;
     private _setupDebug;
     private _onTick;
@@ -264,12 +231,11 @@ declare class SmoothScroller {
     resize(): void;
     triggerAnimations(all?: boolean): void;
     private _drawDebug;
-    private _triggerAnimation;
-    add(_items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions): void;
+    add(items: HTMLElement | HTMLElement[], options: ScrollItemOptions): void;
+    add(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions): void;
     private _refreshActiveSets;
     remove(_items: HTMLElement | HTMLElement[]): void;
     static getBox(node: HTMLElement): DOMRectLike;
-    private _initBox;
     scrollTo(position?: number, time?: number | null): Promise<Tween<{
         y: number;
     }>>;
@@ -287,9 +253,22 @@ declare class SmoothScroller {
     destroy(): void;
 }
 
-declare class CubicBezier {
-    #private;
+declare class CubicBezier implements BezierLike {
+    private _iterations;
+    private _cacheSize;
+    private _cachedValueStepSize;
+    private _cachedValues;
+    private _x1;
+    private _y1;
+    private _x2;
+    private _y2;
+    private _isPreComputed;
+    private static _calculate;
+    private static _getSlope;
     constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
+    private _newtonRaphson;
+    private _preCompute;
+    private _getT;
     get(x: number): number;
     setIterations(x: number): void;
     setCacheSize(x: number): void;
@@ -378,35 +357,14 @@ declare class RenderLoop {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 
-/**
- * Animate an object's properties to specific values.
- *
- * @example
- * animate(element.style, { opacity: 1, top: 100 }, 1.5, 'easeOut');
- */
 declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<Tween<T>>;
-/**
- * Create a new timeline sequence.
- *
- * @example
- * const tl = timeline({ delay: 0.5 })
- *   .add(tween1)
- *   .add(tween2, -0.2); // overlap
- * tl.start();
- */
 declare function timeline(options?: {
     delay?: number;
 }): Timeline;
-/**
- * Creates a delay promise.
- */
 declare const delay: (seconds: number) => Promise<Tween<{}>>;
-/**
- * Helper to create a SmoothScroller instance with default settings.
- */
 declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
 
 export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenChain, TweenManager, animate, delay, smoothScroll, timeline };
-export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingType, ITween, LoopCallback, ObjectUpdateCallback, ScalarUpdateCallback, ScrollAnimationEntry, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };
+export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingType, ITween, LoopCallback, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };

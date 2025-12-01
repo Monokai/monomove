@@ -7,10 +7,9 @@ import {
 	TweenManager, 
 	CubicBezier, 
 	RenderLoop,
-	delay
+	delay,
+	SmoothScroller
 } from '../src/index';
-
-// --- Test Setup & Helpers ---
 
 describe('Monomove Rigorous Test Suite', () => {
 	
@@ -61,12 +60,12 @@ describe('Monomove Rigorous Test Suite', () => {
 			});
 			RenderLoop.play();
 
-			tick(0); // Frame 0: Delta is 0 (or handled internally)
+			tick(0);
 			
-			tick(16); // Frame 1: Advance 16ms
+			tick(16);
 			expect(capturedDelta).toBe(16);
 
-			tick(33); // Frame 2: Advance 33ms
+			tick(33);
 			expect(capturedDelta).toBe(33);
 		});
 
@@ -79,7 +78,7 @@ describe('Monomove Rigorous Test Suite', () => {
 
 			tick(16);
 			expect(renderSpy).toHaveBeenCalled();
-			expect(cleanupSpy).toHaveBeenCalled(); // Cleanup runs post-render every frame
+			expect(cleanupSpy).toHaveBeenCalled();
 		});
 
 		it('should pause and resume correctly without time jumps', () => {
@@ -87,22 +86,19 @@ describe('Monomove Rigorous Test Suite', () => {
 			t.startTween(currentTime);
 
 			tick(0);
-			tick(500); // 0.5s elapsed
+			tick(500);
 			expect(t.value).toBe(0.5);
 
 			RenderLoop.pause();
-			
-			// Simulate 5 seconds passing in the "real world"
 			currentTime += 5000;
-			expect(rafCallbacks.length).toBe(0); // No updates while paused
+			expect(rafCallbacks.length).toBe(0); 
 
 			RenderLoop.play();
 			
-			tick(0); // Resume frame
-			// Value should remain 0.5, ignoring the 5000ms gap
+			tick(0);
 			expect(t.value).toBeCloseTo(0.5);
 
-			tick(500); // Advance 0.5s animation time
+			tick(500);
 			expect(t.value).toBe(1);
 		});
 	});
@@ -110,11 +106,10 @@ describe('Monomove Rigorous Test Suite', () => {
 	// --- 2. Tween Functionality ---
 
 	describe('Tween Mechanics', () => {
-		
 		it('should interpolate multiple properties simultaneously', () => {
 			const target = { x: 0, y: 100, z: 5 };
 			new Tween(target, 1)
-				.to({ x: 10, y: 200, z: 5 }) // z shouldn't change
+				.to({ x: 10, y: 200, z: 5 })
 				.startTween(currentTime);
 
 			tick(0);
@@ -126,11 +121,10 @@ describe('Monomove Rigorous Test Suite', () => {
 		});
 
 		it('should merge properties in chained .to() calls', () => {
-			// Tests the "Merging" fix
 			const target = { x: 0, y: 0 };
 			const tween = new Tween(target, 1)
 				.to({ x: 100 })
-				.to({ y: 100 }); // Should add y, not replace x
+				.to({ y: 100 });
 
 			tween.startTween(currentTime);
 			
@@ -148,7 +142,7 @@ describe('Monomove Rigorous Test Suite', () => {
 				.to({ x: 100 })
 				.startTween(currentTime);
 
-			tick(0); // Initial frame applies .from()
+			tick(0);
 			expect(target.x).toBe(50);
 
 			tick(500);
@@ -161,16 +155,13 @@ describe('Monomove Rigorous Test Suite', () => {
 
 			tick(0);
 			tick(500);
-			expect(spy).toHaveBeenLastCalledWith(0.5, 0.5, 500); // val, progress, delta
+			expect(spy).toHaveBeenLastCalledWith(0.5, 0.5, 500);
 		});
 
 		it('should handle 0 duration (instant)', () => {
 			const target = { x: 0 };
 			const tween = new Tween(target, 0).to({ x: 100 });
-			
-			// Should finish immediately inside the start call
 			tween.startTween(currentTime);
-			
 			expect(target.x).toBe(100);
 			expect(tween.isPlaying).toBe(false);
 		});
@@ -178,13 +169,11 @@ describe('Monomove Rigorous Test Suite', () => {
 		it('should resolve the promise on complete', async () => {
 			const target = { x: 0 };
 			const tween = new Tween(target, 0.1).to({ x: 100 });
-			
 			const promise = tween.start(currentTime);
 			
 			tick(0);
 			tick(50);
-			tick(50); // Complete
-			
+			tick(50);
 			await expect(promise).resolves.toBe(tween);
 			expect(target.x).toBe(100);
 		});
@@ -199,7 +188,7 @@ describe('Monomove Rigorous Test Suite', () => {
 			const onComplete = vi.fn();
 			const target = { x: 0 };
 
-			new Tween(target, 0.1) // 100ms
+			new Tween(target, 0.1)
 				.to({ x: 10 })
 				.onStart(onStart)
 				.onUpdate(onUpdate)
@@ -219,29 +208,25 @@ describe('Monomove Rigorous Test Suite', () => {
 		it('should handle finite loops', () => {
 			const target = { x: 0 };
 			const onLoop = vi.fn();
-			
-			const tween = new Tween(target, 1) // 1s
+			const tween = new Tween(target, 1)
 				.to({ x: 10 })
-				.loop(2) // 2 loops = 3 iterations total (0, 1, 2)
+				.loop(2)
 				.setLoopCallback(onLoop)
 				.startTween(currentTime);
 
 			tick(0);
 
-			// End of 1st run
 			tick(1000);
-			expect(onLoop).toHaveBeenCalledWith(target, 0); // loop index 0
+			expect(onLoop).toHaveBeenCalledWith(target, 0);
 			expect(tween.isPlaying).toBe(true);
 			
-			// End of 2nd run
 			tick(1000);
 			expect(onLoop).toHaveBeenCalledWith(target, 1);
 			expect(tween.isPlaying).toBe(true);
 
-			// End of 3rd run (Final)
 			tick(1000);
 			expect(tween.isPlaying).toBe(false);
-			expect(onLoop).toHaveBeenCalledTimes(2); // Loop callback runs on loop boundaries, not final complete
+			expect(onLoop).toHaveBeenCalledTimes(2);
 		});
 
 		it('should stop and restart correctly', () => {
@@ -254,13 +239,11 @@ describe('Monomove Rigorous Test Suite', () => {
 
 			tween.stop();
 			tick(500);
-			expect(target.x).toBe(50); // Frozen
+			expect(target.x).toBe(50);
 
 			tween.restart();
-			// Rewind sets value to 0 immediately
 			expect(target.x).toBe(0);
 			
-			// Advance time to verify it plays from 0
 			tick(500); 
 			expect(target.x).toBe(50);
 		});
@@ -269,7 +252,6 @@ describe('Monomove Rigorous Test Suite', () => {
 	// --- 4. Timelines & Sequencing ---
 
 	describe('Timeline Composition', () => {
-		
 		it('should sequence items sequentially', () => {
 			const t1 = new Tween({ val: 0 }, 1).to({ val: 1 });
 			const t2 = new Tween({ val: 0 }, 1).to({ val: 1 });
@@ -277,11 +259,11 @@ describe('Monomove Rigorous Test Suite', () => {
 
 			expect(tl.totalTime).toBe(2000);
 
-			tl.setPosition(0.25); // 0.5s -> t1 @ 50%
+			tl.setPosition(0.25);
 			expect(t1.value).toBe(0.5);
 			expect(t2.value).toBe(0);
 
-			tl.setPosition(0.75); // 1.5s -> t1 done, t2 @ 50%
+			tl.setPosition(0.75);
 			expect(t1.value).toBe(1);
 			expect(t2.value).toBe(0.5);
 		});
@@ -289,28 +271,25 @@ describe('Monomove Rigorous Test Suite', () => {
 		it('should handle negative offsets (overlap)', () => {
 			const t1 = new Tween({ x: 0 }, 1);
 			const t2 = new Tween({ x: 0 }, 1);
-			
-			// t1: 0-1s, t2: 0.5-1.5s
 			const tl = new Timeline().add(t1).add(t2, -0.5);
 
 			expect(tl.totalTime).toBe(1500);
 
-			tl.setPosition(0.5); // 0.75s
+			tl.setPosition(0.5);
 			expect(t1.value).toBe(0.75);
 			expect(t2.value).toBe(0.25);
 		});
 
 		it('should handle absolute positioning (.at)', () => {
 			const t1 = new Tween({ x: 0 }, 1);
-			// Start at 2s, end at 3s
 			const tl = new Timeline().at(2, t1);
 
 			expect(tl.totalTime).toBe(3000);
 
-			tl.setPosition(0.5); // 1.5s
-			expect(t1.value).toBe(0); // Hasn't started
+			tl.setPosition(0.5);
+			expect(t1.value).toBe(0);
 
-			tl.setPosition(2.5 / 3); // 2.5s
+			tl.setPosition(2.5 / 3);
 			expect(t1.value).toBe(0.5);
 		});
 
@@ -338,26 +317,22 @@ describe('Monomove Rigorous Test Suite', () => {
 			const onInvisible = vi.fn();
 
 			t1.onTimelineVisible(onVisible).onTimelineInvisible(onInvisible);
-			const tl = new Timeline().at(1, t1); // Tween exists from 1s to 2s
+			const tl = new Timeline().at(1, t1);
 
-			// 1. Initial State: 0s (Before tween)
 			tl.setPosition(0); 
-			vi.clearAllMocks(); // Clear initial state calls
+			vi.clearAllMocks();
 
-			// 2. Enter Tween: 1.5s
 			tl.setPosition(0.5); 
 			expect(onVisible).toHaveBeenCalled();
 			expect(onInvisible).not.toHaveBeenCalled();
 			vi.clearAllMocks();
 
-			// 3. Exit Tween: 0.6s (Scrub backwards)
 			tl.setPosition(0.2); 
 			expect(onVisible).not.toHaveBeenCalled();
 			expect(onInvisible).toHaveBeenCalled();
 		});
 
 		it('should handle "Timeline In" state correctly', () => {
-			// "In" usually means "Active and progressing"
 			const t1 = new Tween({ x: 0 }, 1);
 			const onIn = vi.fn();
 			const onOut = vi.fn();
@@ -368,7 +343,7 @@ describe('Monomove Rigorous Test Suite', () => {
 			tl.setPosition(0.5);
 			expect(onIn).toHaveBeenCalled();
 			
-			tl.setPosition(1); // Finished
+			tl.setPosition(1);
 			expect(onOut).toHaveBeenCalled();
 		});
 	});
@@ -381,24 +356,20 @@ describe('Monomove Rigorous Test Suite', () => {
 			t.startTween(currentTime);
 			tick(0);
 			tick(500); 
-			// Relaxed precision: Bezier approx of quad is not strictly x^2
 			expect(t.value).toBeCloseTo(0.25, 1); 
 		});
 
 		it('should accept custom Bezier data', () => {
 			const bezier = new CubicBezier(0, 1, 1, 0);
 			expect(bezier.get(0)).toBe(0);
-			// CSS Bezier definition: curve always anchors at (1, 1)
 			expect(bezier.get(1)).toBe(1); 
 			
 			const t = new Tween({ x: 0 }, 1).easing(bezier);
 			t.startTween(currentTime);
 			tick(250);
-
 			expect(t.value).toBeGreaterThan(0.25);
 
 			tick(250);
-
 			expect(t.value).toBeCloseTo(0.5);
 		});
 
@@ -406,8 +377,8 @@ describe('Monomove Rigorous Test Suite', () => {
 			const t = new Tween({ x: 0 }, 1).to({ x: 100 });
 			t.startTween(currentTime);
 			
-			tick(2000); // Way past end
-			expect(t.value).toBe(1); // Should not overshoot to 2
+			tick(2000);
+			expect(t.value).toBe(1);
 		});
 	});
 
@@ -422,11 +393,174 @@ describe('Monomove Rigorous Test Suite', () => {
 			tick(0);
 			expect(done).toBe(false);
 			
-			tick(150); // Finish tween
-			
-			// Wait for promise chain
+			tick(150);
 			await new Promise(r => setTimeout(r, 0));
 			expect(done).toBe(true);
+		});
+	});
+
+	// --- 8. SmoothScroller Tests ---
+
+	describe('SmoothScroller', () => {
+		
+		let scroller: SmoothScroller;
+		let element: HTMLElement;
+		
+		const VIEWPORT_HEIGHT = 1000;
+		const ELEMENT_TOP = 2000;
+		const ELEMENT_HEIGHT = 100;
+
+		beforeEach(() => {
+			Object.defineProperty(window, 'innerHeight', { value: VIEWPORT_HEIGHT, configurable: true });
+			Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
+			Object.defineProperty(document.body, 'scrollHeight', { value: 5000, configurable: true });
+			Object.defineProperty(document.body, 'scrollWidth', { value: 1000, configurable: true });
+
+			const originalObserver = window.IntersectionObserver;
+			// @ts-ignore
+			window.IntersectionObserver = undefined;
+			
+			element = document.createElement('div');
+			
+			vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+				top: ELEMENT_TOP,
+				left: 0,
+				width: 100,
+				height: ELEMENT_HEIGHT,
+				bottom: ELEMENT_TOP + ELEMENT_HEIGHT,
+				right: 100,
+				x: 0,
+				y: ELEMENT_TOP,
+				toJSON: () => {}
+			});
+
+			scroller = new SmoothScroller({
+				scrollDuration: 0
+			});
+		});
+
+		afterEach(() => {
+			scroller.destroy();
+		});
+
+		it('should trigger onUpdate when passed via options object', () => {
+			const onUpdate = vi.fn();
+			
+			scroller.add(element, {
+				onUpdate: onUpdate
+			});
+
+			// Enter
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+			
+			expect(onUpdate).toHaveBeenCalled();
+		});
+
+		it('should trigger onScrolledIn when element enters viewport', () => {
+			const onIn = vi.fn();
+			const onOut = vi.fn();
+
+			scroller.add(element, () => {}, {
+				onScrolledIn: onIn,
+				onScrolledOut: onOut
+			});
+			
+			tick(16);
+			expect(onIn).not.toHaveBeenCalled();
+
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+			
+			tick(16);
+
+			expect(onIn).toHaveBeenCalledTimes(1);
+			expect(onOut).not.toHaveBeenCalled();
+		});
+
+		it('should trigger onScrolledOut when element leaves viewport', () => {
+			const onIn = vi.fn();
+			const onOut = vi.fn();
+
+			scroller.add(element, () => {}, {
+				onScrolledIn: onIn,
+				onScrolledOut: onOut
+			});
+
+			tick(16);
+			// expect(onIn).not.toHaveBeenCalled();
+
+			// 1. Scroll In
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+
+			tick(16);
+
+			expect(onIn).toHaveBeenCalledTimes(1);
+
+			// // 2. Scroll Out (Back to top)
+			window.scrollY = 0;
+			window.dispatchEvent(new Event('scroll'));
+
+			tick(16);
+
+			expect(onOut).toHaveBeenCalledTimes(1);
+		});
+
+		it('should trigger onScrolledInOnce only once', () => {
+			const onInOnce = vi.fn();
+			
+			scroller.add(element, () => {}, {
+				onScrolledInOnce: onInOnce
+			});
+
+			tick(16);
+
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+
+			tick(16);
+
+			expect(onInOnce).toHaveBeenCalledTimes(1);
+
+			window.scrollY = 0;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+			expect(onInOnce).toHaveBeenCalledTimes(1);
+		});
+
+		it('should trigger onScrolledOutOnce only once', () => {
+			const onOutOnce = vi.fn();
+
+			scroller.add(element, () => {}, {
+				onScrolledOutOnce: onOutOnce
+			});
+
+			tick(16);
+
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+			expect(onOutOnce).not.toHaveBeenCalled();
+
+			window.scrollY = 0;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+			expect(onOutOnce).toHaveBeenCalledTimes(1);
+
+			window.scrollY = 1500;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+
+			window.scrollY = 0;
+			window.dispatchEvent(new Event('scroll'));
+			tick(16);
+			expect(onOutOnce).toHaveBeenCalledTimes(1);
 		});
 	});
 

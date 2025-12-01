@@ -6,24 +6,19 @@ export interface TimelineOptions {
 }
 
 export abstract class AbstractTimeline implements ITween {
-
 	public previousPosition: number;
-	
 	public startTime: number | null = null;
 	public delayTime: number = 0;
 	public durationMS: number = 0;
 	public value: number = 0;
-	public easingFunction: (t: number) => number = k => k;
-	
-	// Driver is just a generic tween, we don't care about T
+	public easingFunction: (t: number) => number = (k) => k;
+	public totalTime: number = 0;
+
 	protected _driverTween: Tween | null = null;
 	protected _tweens: ITween[] = [];
 	protected _loopNum: number = 0;
-	public totalTime: number = 0;
 
-	constructor({
-		delay = 0
-	}: TimelineOptions = {}) {
+	constructor({ delay = 0 }: TimelineOptions = {}) {
 		this.previousPosition = 0;
 		this.delayTime = delay * 1000;
 	}
@@ -77,7 +72,7 @@ export abstract class AbstractTimeline implements ITween {
 		for (let i = 0; i < this._tweens.length; i++) {
 			this._tweens[i].stop();
 		}
-		
+
 		this._tweens.length = 0;
 		this.totalTime = 0;
 	}
@@ -85,11 +80,11 @@ export abstract class AbstractTimeline implements ITween {
 	public start(): Promise<this> {
 		// Scalar tween constructor overload
 		const driver = new Tween((x) => {
-			 this.setPosition(x);
+			this.setPosition(x);
 		}, this.totalTime / 1000);
-		
+
 		this._driverTween = driver;
-		
+
 		if (this._loopNum !== 0) {
 			driver.loop(this._loopNum);
 		}

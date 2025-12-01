@@ -6,26 +6,20 @@ type CleanupCallback = () => void;
 const isBrowser = typeof window !== 'undefined';
 
 export class RenderLoop {
-
 	private static _subscribers: (RenderCallback | null)[] = [];
 	private static _cleanups: (CleanupCallback | null)[] = [];
-	
 	private static _isUpdating = false;
 	private static _activeCount = 0;
-
 	private static _ms = 0;
 	private static _time = 0;
 	private static _previousTime = 0;
-	
 	private static _pauseTime = 0;
 	private static _pauseTimeStart = 0;
-	
 	private static _isAnimating = false;
 	private static _requestAnimation = false;
 	private static _requestID = 0;
 	private static _onlyHasDelayedTweens = false;
 	private static _isFirstTime = true;
-
 	private static _loopHandler = RenderLoop._animate.bind(RenderLoop);
 
 	private static _animate() {
@@ -33,7 +27,7 @@ export class RenderLoop {
 
 		const now = window.performance.now();
 		this._time = now - this._pauseTime;
-		
+
 		// Logic to handle fresh starts or resume
 		if (this._isFirstTime) {
 			this._ms = 0;
@@ -41,7 +35,7 @@ export class RenderLoop {
 		} else {
 			this._ms = this._time - this._previousTime;
 		}
-		
+
 		if (this._ms < 0) this._ms = 0;
 
 		const hasTweens = TweenManager.onTick(this._time);
@@ -77,7 +71,8 @@ export class RenderLoop {
 			this._compact();
 		}
 
-		this._onlyHasDelayedTweens = (dirtyCount === 0) && TweenManager.onlyHasDelayedTweens(this._time);
+		this._onlyHasDelayedTweens =
+			dirtyCount === 0 && TweenManager.onlyHasDelayedTweens(this._time);
 		this._previousTime = this._time;
 
 		// Keep loop running if active or if we have tweens
@@ -127,7 +122,7 @@ export class RenderLoop {
 		this._subscribers.push(callback);
 		this._cleanups.push(cleanUp || null);
 		this._activeCount++;
-		
+
 		this.trigger();
 	}
 
@@ -152,7 +147,7 @@ export class RenderLoop {
 
 	public static remove(callback: RenderCallback) {
 		const index = this._subscribers.indexOf(callback);
-		
+
 		if (index !== -1) {
 			if (this._isUpdating) {
 				this._subscribers[index] = null;
@@ -164,7 +159,7 @@ export class RenderLoop {
 				this._activeCount--;
 			}
 		}
-		
+
 		this.trigger();
 	}
 
@@ -210,7 +205,7 @@ export class RenderLoop {
 		if (!this._isFirstTime) {
 			this._pauseTime += window.performance.now() - this._pauseTimeStart;
 		}
-		
+
 		this.triggerAnimation();
 	}
 

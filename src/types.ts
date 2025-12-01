@@ -8,16 +8,11 @@ export type EasingFunction = (t: number) => number;
 
 export type EasingType = string | EasingFunction | BezierLike;
 
-// Strict definition allows T[keyof T] to be treated as number
 export type TweenableObject = Record<string, number>;
 
-// Specific callback types
 export type ObjectUpdateCallback<T> = (object: T, value: number, delta: number) => void;
 export type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
-
-// Union type for internal storage
 export type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
-
 export type CompleteCallback<T> = (object: T, time: number) => void;
 export type LoopCallback<T> = (object: T, loopCount: number) => void;
 export type StartCallback<T> = (object: T) => void;
@@ -26,14 +21,12 @@ export type TimelineCallback<T> = (object: T) => void;
 export interface ITween {
 	start(): Promise<ITween>;
 	stop(): ITween;
-	update(time: number): boolean; // returns false if finished
+	update(time: number): boolean;
 	startTime: number | null;
 	delayTime: number;
 	durationMS: number;
-	totalTime?: number; // Used in Timelines
-	
+	totalTime?: number;
 	delay(amount: number): ITween;
-	
 	setPosition(position: number): void;
 	invalidate(): void;
 	updateAllValues(delta?: number): void;
@@ -41,6 +34,7 @@ export interface ITween {
 	easingFunction: EasingFunction;
 }
 
+// Public Data Payload
 export interface SmoothScrollCallbackData {
 	item: HTMLElement;
 	factor: number; // 0 to 1 based on viewport position
@@ -53,16 +47,10 @@ export interface SmoothScrollCallbackData {
 	isInView: boolean;
 	boxIsInView: boolean;
 	index: number;
-	fixedTop?: number;
-	isScrolledIn?: boolean;
-	isScrolledOut?: boolean;
-	isScrolledInOnce?: boolean;
-	isScrolledOutOnce?: boolean;
-	previousIsInView?: boolean;
 	centerOffset: number;
 	originalTop: number;
-	isVisible: boolean;
-	data?: unknown; // User data is truly unknown
+	isVisible: boolean; // From IntersectionObserver
+	data?: unknown; // User data
 }
 
 export type SmoothScrollCallback = (data: SmoothScrollCallbackData) => void;
@@ -78,7 +66,6 @@ export interface SmoothScrollOptions {
 	container?: HTMLElement;
 	content?: HTMLElement;
 	easing?: EasingFunction;
-	scrollFactor?: number | null; // Deprecated
 	scrollDuration?: number;
 	listener?: Window | HTMLElement;
 	debug?: boolean;
@@ -92,19 +79,11 @@ export interface ScrollItemOptions {
 	speed?: number;
 	smoothing?: number;
 	data?: unknown;
-}
 
-export interface ScrollAnimationEntry {
-	animation: SmoothScrollCallback;
-	directionOffset: number;
-	offset: number;
-	speed: number;
-	smoothing?: number;
-	animationObject: SmoothScrollCallbackData;
-	item: HTMLElement;
-	index: number;
-	observer: IntersectionObserver | null;
-	box: DOMRectLike;
-	smoothScroll?: (x: number, delta: number, smooth: number) => number;
-	previousFactor?: number;
+	// Callbacks
+	onUpdate?: SmoothScrollCallback; // Runs every frame
+	onScrolledIn?: (data: SmoothScrollCallbackData) => void;
+	onScrolledOut?: (data: SmoothScrollCallbackData) => void;
+	onScrolledInOnce?: (data: SmoothScrollCallbackData) => void;
+	onScrolledOutOnce?: (data: SmoothScrollCallbackData) => void;
 }

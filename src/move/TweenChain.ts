@@ -8,7 +8,7 @@ import type { ITween } from '../types.js';
 export class TweenChain extends Timeline {
 	constructor(tweens: ITween[], options: { delay?: number } = {}) {
 		super(options);
-		
+
 		// Add all tweens sequentially
 		for (let i = 0; i < tweens.length; i++) {
 			this.add(tweens[i]);
