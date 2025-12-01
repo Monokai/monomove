@@ -1,0 +1,433 @@
+// @vitest-environment happy-dom
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { 
+	Tween, 
+	Timeline, 
+	TweenManager, 
+	CubicBezier, 
+	RenderLoop,
+	delay
+} from '../src/index';
+
+// --- Test Setup & Helpers ---
+
+describe('Monomove Rigorous Test Suite', () => {
+	
+	let rafCallbacks: { id: number, cb: FrameRequestCallback }[] = [];
+	let currentTime = 1000; 
+	let rafIdCounter = 0;
+
+	const tick = (ms: number) => {
+		currentTime += ms;
+		const callbacksToRun = [...rafCallbacks];
+		rafCallbacks = [];
+		callbacksToRun.forEach(({ cb }) => cb(currentTime));
+	};
+
+	beforeEach(() => {
+		RenderLoop.reset();
+		TweenManager.removeAll();
+
+		rafCallbacks = [];
+		currentTime = 1000;
+		rafIdCounter = 0;
+
+		vi.spyOn(window.performance, 'now').mockImplementation(() => currentTime);
+		
+		vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			const id = ++rafIdCounter;
+			rafCallbacks.push({ id, cb });
+			return id;
+		});
+
+		vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((idToCancel) => {
+			rafCallbacks = rafCallbacks.filter(({ id }) => id !== idToCancel);
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	// --- 1. RenderLoop & Engine Tests ---
+
+	describe('Core Engine (RenderLoop)', () => {
+		it('should calculate accurate deltas', () => {
+			let capturedDelta = -1;
+			RenderLoop.add((ms) => {
+				capturedDelta = ms;
+				return true;
+			});
+			RenderLoop.play();
+
+			tick(0); // Frame 0: Delta is 0 (or handled internally)
+			
+			tick(16); // Frame 1: Advance 16ms
+			expect(capturedDelta).toBe(16);
+
+			tick(33); // Frame 2: Advance 33ms
+			expect(capturedDelta).toBe(33);
+		});
+
+		it('should handle cleanup callbacks', () => {
+			const renderSpy = vi.fn(() => true);
+			const cleanupSpy = vi.fn();
+			
+			RenderLoop.add(renderSpy, cleanupSpy);
+			RenderLoop.play();
+
+			tick(16);
+			expect(renderSpy).toHaveBeenCalled();
+			expect(cleanupSpy).toHaveBeenCalled(); // Cleanup runs post-render every frame
+		});
+
+		it('should pause and resume correctly without time jumps', () => {
+			const t = new Tween({ x: 0 }, 1).to({ x: 100 });
+			t.startTween(currentTime);
+
+			tick(0);
+			tick(500); // 0.5s elapsed
+			expect(t.value).toBe(0.5);
+
+			RenderLoop.pause();
+			
+			// Simulate 5 seconds passing in the "real world"
+			currentTime += 5000;
+			expect(rafCallbacks.length).toBe(0); // No updates while paused
+
+			RenderLoop.play();
+			
+			tick(0); // Resume frame
+			// Value should remain 0.5, ignoring the 5000ms gap
+			expect(t.value).toBeCloseTo(0.5);
+
+			tick(500); // Advance 0.5s animation time
+			expect(t.value).toBe(1);
+		});
+	});
+
+	// --- 2. Tween Functionality ---
+
+	describe('Tween Mechanics', () => {
+		
+		it('should interpolate multiple properties simultaneously', () => {
+			const target = { x: 0, y: 100, z: 5 };
+			new Tween(target, 1)
+				.to({ x: 10, y: 200, z: 5 }) // z shouldn't change
+				.startTween(currentTime);
+
+			tick(0);
+			tick(500);
+			
+			expect(target.x).toBe(5);
+			expect(target.y).toBe(150);
+			expect(target.z).toBe(5);
+		});
+
+		it('should merge properties in chained .to() calls', () => {
+			// Tests the "Merging" fix
+			const target = { x: 0, y: 0 };
+			const tween = new Tween(target, 1)
+				.to({ x: 100 })
+				.to({ y: 100 }); // Should add y, not replace x
+
+			tween.startTween(currentTime);
+			
+			tick(0);
+			tick(1000);
+			
+			expect(target.x).toBe(100);
+			expect(target.y).toBe(100);
+		});
+
+		it('should handle .from() overrides', () => {
+			const target = { x: 0 };
+			new Tween(target, 1)
+				.from({ x: 50 })
+				.to({ x: 100 })
+				.startTween(currentTime);
+
+			tick(0); // Initial frame applies .from()
+			expect(target.x).toBe(50);
+
+			tick(500);
+			expect(target.x).toBe(75);
+		});
+
+		it('should support scalar (function) targets', () => {
+			const spy = vi.fn();
+			new Tween(spy, 1).startTween(currentTime);
+
+			tick(0);
+			tick(500);
+			expect(spy).toHaveBeenLastCalledWith(0.5, 0.5, 500); // val, progress, delta
+		});
+
+		it('should handle 0 duration (instant)', () => {
+			const target = { x: 0 };
+			const tween = new Tween(target, 0).to({ x: 100 });
+			
+			// Should finish immediately inside the start call
+			tween.startTween(currentTime);
+			
+			expect(target.x).toBe(100);
+			expect(tween.isPlaying).toBe(false);
+		});
+
+		it('should resolve the promise on complete', async () => {
+			const target = { x: 0 };
+			const tween = new Tween(target, 0.1).to({ x: 100 });
+			
+			const promise = tween.start(currentTime);
+			
+			tick(0);
+			tick(50);
+			tick(50); // Complete
+			
+			await expect(promise).resolves.toBe(tween);
+			expect(target.x).toBe(100);
+		});
+	});
+
+	// --- 3. Lifecycle & Control ---
+
+	describe('Tween Lifecycle', () => {
+		it('should fire callbacks in correct order', () => {
+			const onStart = vi.fn();
+			const onUpdate = vi.fn();
+			const onComplete = vi.fn();
+			const target = { x: 0 };
+
+			new Tween(target, 0.1) // 100ms
+				.to({ x: 10 })
+				.onStart(onStart)
+				.onUpdate(onUpdate)
+				.onComplete(onComplete)
+				.startTween(currentTime);
+
+			tick(0);
+			expect(onStart).toHaveBeenCalledTimes(1);
+			expect(onUpdate).toHaveBeenCalled();
+			expect(onComplete).not.toHaveBeenCalled();
+
+			tick(100);
+			expect(onComplete).toHaveBeenCalledTimes(1);
+			expect(target.x).toBe(10);
+		});
+
+		it('should handle finite loops', () => {
+			const target = { x: 0 };
+			const onLoop = vi.fn();
+			
+			const tween = new Tween(target, 1) // 1s
+				.to({ x: 10 })
+				.loop(2) // 2 loops = 3 iterations total (0, 1, 2)
+				.setLoopCallback(onLoop)
+				.startTween(currentTime);
+
+			tick(0);
+
+			// End of 1st run
+			tick(1000);
+			expect(onLoop).toHaveBeenCalledWith(target, 0); // loop index 0
+			expect(tween.isPlaying).toBe(true);
+			
+			// End of 2nd run
+			tick(1000);
+			expect(onLoop).toHaveBeenCalledWith(target, 1);
+			expect(tween.isPlaying).toBe(true);
+
+			// End of 3rd run (Final)
+			tick(1000);
+			expect(tween.isPlaying).toBe(false);
+			expect(onLoop).toHaveBeenCalledTimes(2); // Loop callback runs on loop boundaries, not final complete
+		});
+
+		it('should stop and restart correctly', () => {
+			const target = { x: 0 };
+			const tween = new Tween(target, 1).to({ x: 100 });
+
+			tween.startTween(currentTime);
+			tick(500);
+			expect(target.x).toBe(50);
+
+			tween.stop();
+			tick(500);
+			expect(target.x).toBe(50); // Frozen
+
+			tween.restart();
+			// Rewind sets value to 0 immediately
+			expect(target.x).toBe(0);
+			
+			// Advance time to verify it plays from 0
+			tick(500); 
+			expect(target.x).toBe(50);
+		});
+	});
+
+	// --- 4. Timelines & Sequencing ---
+
+	describe('Timeline Composition', () => {
+		
+		it('should sequence items sequentially', () => {
+			const t1 = new Tween({ val: 0 }, 1).to({ val: 1 });
+			const t2 = new Tween({ val: 0 }, 1).to({ val: 1 });
+			const tl = new Timeline().add(t1).add(t2);
+
+			expect(tl.totalTime).toBe(2000);
+
+			tl.setPosition(0.25); // 0.5s -> t1 @ 50%
+			expect(t1.value).toBe(0.5);
+			expect(t2.value).toBe(0);
+
+			tl.setPosition(0.75); // 1.5s -> t1 done, t2 @ 50%
+			expect(t1.value).toBe(1);
+			expect(t2.value).toBe(0.5);
+		});
+
+		it('should handle negative offsets (overlap)', () => {
+			const t1 = new Tween({ x: 0 }, 1);
+			const t2 = new Tween({ x: 0 }, 1);
+			
+			// t1: 0-1s, t2: 0.5-1.5s
+			const tl = new Timeline().add(t1).add(t2, -0.5);
+
+			expect(tl.totalTime).toBe(1500);
+
+			tl.setPosition(0.5); // 0.75s
+			expect(t1.value).toBe(0.75);
+			expect(t2.value).toBe(0.25);
+		});
+
+		it('should handle absolute positioning (.at)', () => {
+			const t1 = new Tween({ x: 0 }, 1);
+			// Start at 2s, end at 3s
+			const tl = new Timeline().at(2, t1);
+
+			expect(tl.totalTime).toBe(3000);
+
+			tl.setPosition(0.5); // 1.5s
+			expect(t1.value).toBe(0); // Hasn't started
+
+			tl.setPosition(2.5 / 3); // 2.5s
+			expect(t1.value).toBe(0.5);
+		});
+
+		it('should play via .start()', async () => {
+			const t1 = new Tween({ x: 0 }, 1).to({ x: 100 });
+			const tl = new Timeline().add(t1);
+
+			tl.start();
+			tick(0);
+			
+			tick(500);
+			expect(t1.object?.x).toBe(50);
+
+			tick(500);
+			expect(t1.object?.x).toBe(100);
+		});
+	});
+
+	// --- 5. Timeline Scrubbing & visibility ---
+
+	describe('Timeline Scrubbing & Visibility', () => {
+		it('should trigger visibility callbacks during scrubbing', () => {
+			const t1 = new Tween({ x: 0 }, 1);
+			const onVisible = vi.fn();
+			const onInvisible = vi.fn();
+
+			t1.onTimelineVisible(onVisible).onTimelineInvisible(onInvisible);
+			const tl = new Timeline().at(1, t1); // Tween exists from 1s to 2s
+
+			// 1. Initial State: 0s (Before tween)
+			tl.setPosition(0); 
+			vi.clearAllMocks(); // Clear initial state calls
+
+			// 2. Enter Tween: 1.5s
+			tl.setPosition(0.5); 
+			expect(onVisible).toHaveBeenCalled();
+			expect(onInvisible).not.toHaveBeenCalled();
+			vi.clearAllMocks();
+
+			// 3. Exit Tween: 0.6s (Scrub backwards)
+			tl.setPosition(0.2); 
+			expect(onVisible).not.toHaveBeenCalled();
+			expect(onInvisible).toHaveBeenCalled();
+		});
+
+		it('should handle "Timeline In" state correctly', () => {
+			// "In" usually means "Active and progressing"
+			const t1 = new Tween({ x: 0 }, 1);
+			const onIn = vi.fn();
+			const onOut = vi.fn();
+
+			t1.onTimelineIn(onIn).onTimelineOut(onOut);
+			const tl = new Timeline().add(t1);
+
+			tl.setPosition(0.5);
+			expect(onIn).toHaveBeenCalled();
+			
+			tl.setPosition(1); // Finished
+			expect(onOut).toHaveBeenCalled();
+		});
+	});
+
+	// --- 6. Easing & Math ---
+
+	describe('Easing & Bezier', () => {
+		it('should use presets', () => {
+			const t = new Tween({ x: 0 }, 1).to({ x: 100 }).easing('easeInQuad');
+			t.startTween(currentTime);
+			tick(0);
+			tick(500); 
+			// Relaxed precision: Bezier approx of quad is not strictly x^2
+			expect(t.value).toBeCloseTo(0.25, 1); 
+		});
+
+		it('should accept custom Bezier data', () => {
+			const bezier = new CubicBezier(0, 1, 1, 0);
+			expect(bezier.get(0)).toBe(0);
+			// CSS Bezier definition: curve always anchors at (1, 1)
+			expect(bezier.get(1)).toBe(1); 
+			
+			const t = new Tween({ x: 0 }, 1).easing(bezier);
+			t.startTween(currentTime);
+			tick(250);
+
+			expect(t.value).toBeGreaterThan(0.25);
+
+			tick(250);
+
+			expect(t.value).toBeCloseTo(0.5);
+		});
+
+		it('should clamp values appropriately', () => {
+			const t = new Tween({ x: 0 }, 1).to({ x: 100 });
+			t.startTween(currentTime);
+			
+			tick(2000); // Way past end
+			expect(t.value).toBe(1); // Should not overshoot to 2
+		});
+	});
+
+	// --- 7. Utilities ---
+
+	describe('Utilities', () => {
+		it('should create a delay promise', async () => {
+			const p = delay(0.1);
+			let done = false;
+			p.then(() => { done = true; });
+
+			tick(0);
+			expect(done).toBe(false);
+			
+			tick(150); // Finish tween
+			
+			// Wait for promise chain
+			await new Promise(r => setTimeout(r, 0));
+			expect(done).toBe(true);
+		});
+	});
+
+});

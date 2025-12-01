@@ -3,10 +3,10 @@ import { TweenManager } from './TweenManager.js';
 type RenderCallback = (ms: number) => boolean | void;
 type CleanupCallback = () => void;
 
+const isBrowser = typeof window !== 'undefined';
+
 export class RenderLoop {
 
-	// Structure of Arrays (SoA) for better cache locality and reduced object allocation
-	// We allow nulls internally to handle safe removals during iteration
 	private static _subscribers: (RenderCallback | null)[] = [];
 	private static _cleanups: (CleanupCallback | null)[] = [];
 	
@@ -26,28 +26,34 @@ export class RenderLoop {
 	private static _onlyHasDelayedTweens = false;
 	private static _isFirstTime = true;
 
-	// Pre-bound handler to avoid creating closures every frame
 	private static _loopHandler = RenderLoop._animate.bind(RenderLoop);
 
 	private static _animate() {
+		if (!isBrowser) return;
+
 		const now = window.performance.now();
 		this._time = now - this._pauseTime;
-		this._ms = this._previousTime ? this._time - this._previousTime : 0;
+		
+		// Logic to handle fresh starts or resume
+		if (this._isFirstTime) {
+			this._ms = 0;
+			this._isFirstTime = false;
+		} else {
+			this._ms = this._time - this._previousTime;
+		}
+		
+		if (this._ms < 0) this._ms = 0;
 
 		const hasTweens = TweenManager.onTick(this._time);
 
 		this._isUpdating = true;
 		let dirtyCount = 0;
 
-		// Iterate current subscribers
-		// We use the array length directly. New additions during this loop 
-		// are pushed to the end and handled in the next frame naturally.
 		const len = this._subscribers.length;
 		const subs = this._subscribers;
 
 		for (let i = 0; i < len; i++) {
 			const sub = subs[i];
-			// Skip nulls (items removed during this tick)
 			if (sub !== null) {
 				if (sub(this._ms) === true) {
 					dirtyCount++;
@@ -58,7 +64,6 @@ export class RenderLoop {
 		if (!this._onlyHasDelayedTweens) {
 			const cleanups = this._cleanups;
 			for (let i = 0; i < len; i++) {
-				// Check parallel array for cleanup and ensure subscriber wasn't removed (null)
 				const cleanup = cleanups[i];
 				if (cleanup !== null && subs[i] !== null) {
 					cleanup();
@@ -68,7 +73,6 @@ export class RenderLoop {
 
 		this._isUpdating = false;
 
-		// Cleanup nulls if any removals happened
 		if (this._activeCount < subs.length) {
 			this._compact();
 		}
@@ -76,8 +80,10 @@ export class RenderLoop {
 		this._onlyHasDelayedTweens = (dirtyCount === 0) && TweenManager.onlyHasDelayedTweens(this._time);
 		this._previousTime = this._time;
 
+		// Keep loop running if active or if we have tweens
 		if (this._isAnimating && (dirtyCount > 0 || hasTweens)) {
 			this._requestID = window.requestAnimationFrame(this._loopHandler);
+			this._requestAnimation = true;
 		} else {
 			this._requestAnimation = false;
 		}
@@ -107,7 +113,10 @@ export class RenderLoop {
 
 	public static stop(callback?: () => void) {
 		this._isAnimating = false;
-		window.cancelAnimationFrame(this._requestID);
+		if (isBrowser) {
+			window.cancelAnimationFrame(this._requestID);
+		}
+		this._requestAnimation = false;
 
 		if (callback) {
 			callback();
@@ -118,6 +127,7 @@ export class RenderLoop {
 		this._subscribers.push(callback);
 		this._cleanups.push(cleanUp || null);
 		this._activeCount++;
+		
 		this.trigger();
 	}
 
@@ -126,6 +136,18 @@ export class RenderLoop {
 		this._cleanups.length = 0;
 		this._activeCount = 0;
 		TweenManager.removeAll();
+		this.stop();
+
+		this._ms = 0;
+		this._time = 0;
+		this._previousTime = 0;
+		this._pauseTime = 0;
+		this._pauseTimeStart = 0;
+		this._isAnimating = false;
+		this._requestAnimation = false;
+		this._requestID = 0;
+		this._onlyHasDelayedTweens = false;
+		this._isFirstTime = true;
 	}
 
 	public static remove(callback: RenderCallback) {
@@ -133,12 +155,10 @@ export class RenderLoop {
 		
 		if (index !== -1) {
 			if (this._isUpdating) {
-				// Soft remove: nullify slot to preserve indices during iteration
 				this._subscribers[index] = null;
 				this._cleanups[index] = null;
 				this._activeCount--;
 			} else {
-				// Hard remove
 				this._subscribers.splice(index, 1);
 				this._cleanups.splice(index, 1);
 				this._activeCount--;
@@ -151,8 +171,15 @@ export class RenderLoop {
 	public static trigger() {
 		this._onlyHasDelayedTweens = false;
 
+		if (!isBrowser) return;
+
 		if (this._requestAnimation) {
 			return;
+		}
+
+		// When waking up from idle, sync time to prevent huge deltas
+		if (!this._isFirstTime) {
+			this._previousTime = this.getTime();
 		}
 
 		this._requestAnimation = true;
@@ -160,30 +187,30 @@ export class RenderLoop {
 	}
 
 	public static getTime() {
-		this._time = window.performance.now() - this._pauseTime;
-		return this._time;
+		if (!isBrowser) return 0;
+		return window.performance.now() - this._pauseTime;
 	}
 
 	public static pause() {
-		if (!this._isAnimating) {
+		if (!this._isAnimating || !isBrowser) {
 			return;
 		}
 
 		this._pauseTimeStart = window.performance.now();
 		this._requestAnimation = false;
-		this.stop();
+		this._isAnimating = false;
+		window.cancelAnimationFrame(this._requestID);
 	}
 
 	public static play() {
-		if (this._isAnimating) {
+		if (this._isAnimating || !isBrowser) {
 			return;
 		}
 
 		if (!this._isFirstTime) {
 			this._pauseTime += window.performance.now() - this._pauseTimeStart;
 		}
-
-		this._isFirstTime = false;
+		
 		this.triggerAnimation();
 	}
 

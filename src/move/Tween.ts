@@ -28,7 +28,6 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	public startTime: number | null;
 	public easingFunction: EasingFunction;
 	
-	// Allow object to be null for scalar tweens
 	public object: T | null; 
 	public value: number;
 
@@ -63,17 +62,10 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	private _inverseDuration: number;
 
 	private _targetIsFunction: boolean;
+	private _isInitialized: boolean = false;
 
-	/**
-	 * Create a tween that animates properties of an object.
-	 */
 	constructor(object: T, duration?: number);
-
-	/**
-	 * Create a tween that calls a function with a scalar value from 0 to 1.
-	 */
 	constructor(callback: ScalarUpdateCallback, duration?: number);
-
 	constructor(objectOrCallback: T | ScalarUpdateCallback, duration: number = 1) {
 		this.durationMS = duration * 1000;
 		this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
@@ -97,15 +89,14 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 		this._propKeys = [];
 		this._propStartValues = [];
 		this._propChangeValues = [];
+		this._isInitialized = false;
 
 		if (typeof objectOrCallback === 'function') {
 			this._targetIsFunction = true;
 			this.object = null;
 			this._onUpdateCallback = objectOrCallback;
 			
-			// Default scalar state
 			this._valuesStart['value'] = 0; 
-			// Fix: Double cast to satisfy Partial<T> constraint
 			this._valuesEnd = { value: 1 } as unknown as Partial<T>; 
 
 		} else {
@@ -114,7 +105,6 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			this._onUpdateCallback = null;
 			this._valuesEnd = {};
 			
-			// Cast to Record to iterate safely
 			const obj = this.object as Record<string, number>;
 			const keys = Object.keys(obj);
 			
@@ -142,12 +132,13 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			for (const key in properties) {
 				const val = properties[key];
 				if (typeof val === 'number' && this.object) {
-					// Fix: Cast object to Record to allow assignment
 					(this.object as Record<string, number>)[key] = val;
 					this._valuesStart[key] = val;
 				}
 			}
 		}
+		
+		this._isInitialized = false;
 
 		if (this._onUpdateCallback) {
 			this.updateAllValues(0);
@@ -162,7 +153,8 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		}
 
-		this._valuesEnd = properties;
+		this._valuesEnd = { ...this._valuesEnd, ...properties };
+		this._isInitialized = false;
 		return this;
 	}
 
@@ -173,14 +165,17 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	}
 
 	rewind() {
+		this.stop();
+		this.value = 0;
+		this._elapsed = 0;
 		if (!this._targetIsFunction && this.object) {
 			const obj = this.object as Record<string, number>;
 			for (const key in this._valuesStart) {
-				// Fix: Cast object to Record to allow assignment
 				obj[key] = this._valuesStart[key];
 			}
 		}
-		this.value = this.easingFunction(0);
+		this._isInitialized = false;
+		this.invalidate();
 		return this;
 	}
 
@@ -199,19 +194,13 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 		return this;
 	}
 
-	startTween(time: number = RenderLoop.getTime()) {
-		const wasPlaying = this.isPlaying;
-
-		this._elapsed = 0;
-		this._onStartCallbackFired = false;
-		this.isPlaying = true;
-		this.startTime = time + this.delayTime;
+	private _init() {
+		if (this._isInitialized) return;
 
 		this._propKeys.length = 0;
 		this._propStartValues.length = 0;
 		this._propChangeValues.length = 0;
 
-		// Auto-populate end values if empty (Object mode only)
 		if (!this._targetIsFunction && this.object) {
 			let hasEndValues = false;
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -223,7 +212,6 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 					 if (key in this._valuesStart) {
 						 const val = obj[key];
 						 if (typeof val === 'number') {
-							// Fix: Double cast to allow assignment to generic Partial
 							(this._valuesEnd as Record<string, number>)[key] = val;
 						 }
 					 }
@@ -233,10 +221,8 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 
 		for (const key in this._valuesEnd) {
 			const end = this._valuesEnd[key];
-			
 			let start = this._valuesStart[key];
 
-			// If start missing, check object
 			if (!this._targetIsFunction && start === undefined && this.object) {
 				const obj = this.object as Record<string, number>;
 				const currentVal = obj[key];
@@ -250,13 +236,24 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 				start = 0;
 			}
 
-			// Fix: Check end type explicitly as number to allow math
 			if (typeof start === 'number' && typeof end === 'number') {
 				this._propKeys.push(key as keyof T);
 				this._propStartValues.push(start);
 				this._propChangeValues.push(end - start);
 			}
 		}
+
+		this._isInitialized = true;
+	}
+
+	startTween(time: number = RenderLoop.getTime()) {
+		this._init();
+		const wasPlaying = this.isPlaying;
+
+		this._elapsed = 0;
+		this._onStartCallbackFired = false;
+		this.isPlaying = true;
+		this.startTime = time + this.delayTime;
 
 		if (this.durationMS === 0 && this._loopNum === 0 && this.delayTime === 0) {
 			this.update(time);
@@ -356,18 +353,21 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	}
 
 	setPosition(position: number) {
+		this._init();
+
 		const normalized = position < 0 ? 0 : (position > 1 ? 1 : position);
 		this.value = this.easingFunction(normalized);
 		this.updateAllValues();
 	}
 
 	updateAllValues(delta: number = 0) {
+		if (!this._isInitialized) this._init();
+
 		if (this.value === this._previousUpdateValue) {
 			return;
 		}
 
 		if (this._targetIsFunction) {
-			// Function Mode
 			if (this._propStartValues.length > 0) {
 				const start = this._propStartValues[0];
 				const change = this._propChangeValues[0];
@@ -378,22 +378,18 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 				}
 			}
 		} else {
-			// Object Mode
 			const len = this._propKeys.length;
 			const keys = this._propKeys;
 			const starts = this._propStartValues;
 			const changes = this._propChangeValues;
 			const val = this.value;
-			// Use non-null assertion or strict check logic
 			const obj = this.object as Record<string, number>; 
 
 			for (let i = 0; i < len; i++) {
-				// Fix: Cast key to string to index Record safely
 				obj[keys[i] as string] = starts[i] + changes[i] * val;
 			}
 
 			if (this._onUpdateCallback) {
-				// Cast this.object back to T for the callback
 				(this._onUpdateCallback as ObjectUpdateCallback<T>)(this.object!, val, delta);
 			}
 		}
@@ -443,12 +439,22 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 		if (clamped === 1) {
 			const tempStartTime = this.startTime;
 
+			if (this.durationMS === 0) {
+				if (this._onCompleteCallback && this.isPlaying && this.object) {
+					this._onCompleteCallback(this.object, 0);
+				}
+				this.isPlaying = false;
+				return false;
+			}
+
 			if (this._loopCount > 0) {
 				if (this._onLoopCallback && this.object) {
 					this._onLoopCallback(this.object, this._loopNum - this._loopCount);
 				}
 				this._loopCount--;
-				this.restart();
+				this.startTime += this.durationMS;
+				this._elapsed = time - this.startTime;
+				return true;
 			} else if (this._onCompleteCallback && this.isPlaying && this.object) {
 				this._onCompleteCallback(this.object, time - this.startTime);
 			}

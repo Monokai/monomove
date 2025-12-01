@@ -12,16 +12,20 @@ import type {
 } from '../types.js';
 
 let passiveSupported = false;
-try {
-	const options = Object.defineProperty({}, 'passive', {
-		get: () => {
-			passiveSupported = true;
-			return true;
-		}
-	}) as unknown as AddEventListenerOptions;
-	window.addEventListener('test', () => {}, options);
-	window.removeEventListener('test', () => {}, options);
-} catch (e) { /* ignore */ }
+
+// Check if window exists (SSR Guard)
+if (typeof window !== 'undefined') {
+    try {
+        const options = Object.defineProperty({}, 'passive', {
+            get: () => {
+                passiveSupported = true;
+                return true;
+            }
+        }) as unknown as AddEventListenerOptions;
+        window.addEventListener('test', () => {}, options);
+        window.removeEventListener('test', () => {}, options);
+    } catch (e) { /* ignore */ }
+}
 
 const PASSIVE_OPTS = passiveSupported ? { passive: true } : false;
 
