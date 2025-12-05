@@ -1,7 +1,11 @@
 export interface BezierLike {
 	get(t: number): number;
-	setIterations?(iter: number): void;
-	setCacheSize?(size: number): void;
+	cacheSize: number;
+	iterations: number;
+	precision: number;
+	newtonRaphsonMinSlope: number;
+	subdivisionPrecision: number;
+	subdivisionIterations: number;
 }
 
 export type EasingFunction = (t: number) => number;
@@ -10,13 +14,24 @@ export type EasingType = string | EasingFunction | BezierLike;
 
 export type TweenableObject = Record<string, number>;
 
-export type ObjectUpdateCallback<T> = (object: T, value: number, delta: number) => void;
+export type ObjectOrValue<T> = T | number | null;
+
 export type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
+export type ObjectUpdateCallback<T> = (object: T, progress: number, delta: number) => void;
 export type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
-export type CompleteCallback<T> = (object: T, time: number) => void;
-export type LoopCallback<T> = (object: T, loopCount: number) => void;
-export type StartCallback<T> = (object: T) => void;
-export type TimelineCallback<T> = (object: T) => void;
+export type CompleteCallback<T> = (object: ObjectOrValue<T>) => void;
+export type LoopCallback<T> = (object: ObjectOrValue<T>, loopCount: number) => void;
+export type StartCallback<T> = (object: ObjectOrValue<T>) => void;
+export type TimelineCallback<T> = (object: ObjectOrValue<T>) => void;
+
+export interface EasingOptions {
+	cacheSize?: number | null;
+	iterations?: number | null;
+	precision?: number | null;
+	newtonRaphsonMinSlope?: number | null;
+	subdivisionPrecision?: number | null;
+	subdivisionIterations?: number | null;
+}
 
 export interface ITween {
 	start(): Promise<ITween>;
@@ -30,7 +45,7 @@ export interface ITween {
 	setPosition(position: number): void;
 	invalidate(): void;
 	updateAllValues(delta?: number): void;
-	value: number;
+	progress: number;
 	easingFunction: EasingFunction;
 }
 

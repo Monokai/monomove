@@ -16,7 +16,6 @@ export class ScrollItem {
 
 	private _hasEnteredOnce = false;
 	private _hasExitedOnce = false;
-	// Fix: Initialize to false. undefined caused checks to fail or behave strictly on init.
 	private _previousIsInView = false;
 	private _previousFactor = NaN;
 
@@ -119,6 +118,7 @@ export class ScrollItem {
 
 		if (this.smoothing && this._smoothScrollFn) {
 			const deltaSeconds = (ms * 60) / 1000;
+
 			this._data.smoothScrollValue = this._smoothScrollFn(
 				currentScroll,
 				deltaSeconds,
@@ -140,13 +140,14 @@ export class ScrollItem {
 		const range = viewportHeight + box.height;
 		const rawFactor = pos / range;
 		const rawBoxFactor = (pos - viewportHeight) / box.height;
-
 		const speed = this._speed;
+
 		this._data.rawFactor = (1 - rawFactor - 0.5) * speed + 0.5;
 		this._data.rawBoxFactor = (1 - rawBoxFactor - 0.5) * speed + 0.5;
 
 		this._data.factor =
 			this._data.rawFactor < 0 ? 0 : this._data.rawFactor > 1 ? 1 : this._data.rawFactor;
+
 		this._data.boxFactor =
 			this._data.rawBoxFactor < 0
 				? 0
@@ -157,27 +158,25 @@ export class ScrollItem {
 		this._data.isInView = this._data.rawFactor >= 0 && this._data.rawFactor <= 1;
 		this._data.boxIsInView = this._data.rawBoxFactor >= 0 && this._data.rawBoxFactor <= 1;
 
-		// Fix: Simplified logic using strict boolean comparison
 		if (this._data.isInView !== this._previousIsInView) {
 			if (this._data.isInView) {
 				if (this.smoothing) {
 					this._smoothScrollFn = smoothValue(currentScroll);
 				}
 
-				if (this._onScrolledIn) this._onScrolledIn(this._data);
+				this._onScrolledIn?.(this._data);
 
 				if (!this._hasEnteredOnce) {
 					this._hasEnteredOnce = true;
-					if (this._onScrolledInOnce) this._onScrolledInOnce(this._data);
+					this._onScrolledInOnce?.(this._data);
 				}
 			} else {
-				if (this._onScrolledOut) this._onScrolledOut(this._data);
-
+				this._onScrolledOut?.(this._data);
 				this._smoothScrollFn = undefined;
 
 				if (!this._hasExitedOnce) {
 					this._hasExitedOnce = true;
-					if (this._onScrolledOutOnce) this._onScrolledOutOnce(this._data);
+					this._onScrolledOutOnce?.(this._data);
 				}
 			}
 

@@ -1,18 +1,31 @@
 interface BezierLike {
     get(t: number): number;
-    setIterations?(iter: number): void;
-    setCacheSize?(size: number): void;
+    cacheSize: number;
+    iterations: number;
+    precision: number;
+    newtonRaphsonMinSlope: number;
+    subdivisionPrecision: number;
+    subdivisionIterations: number;
 }
 type EasingFunction = (t: number) => number;
 type EasingType = string | EasingFunction | BezierLike;
 type TweenableObject = Record<string, number>;
-type ObjectUpdateCallback<T> = (object: T, value: number, delta: number) => void;
+type ObjectOrValue<T> = T | number | null;
 type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
+type ObjectUpdateCallback<T> = (object: T, progress: number, delta: number) => void;
 type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
-type CompleteCallback<T> = (object: T, time: number) => void;
-type LoopCallback<T> = (object: T, loopCount: number) => void;
-type StartCallback<T> = (object: T) => void;
-type TimelineCallback<T> = (object: T) => void;
+type CompleteCallback<T> = (object: ObjectOrValue<T>) => void;
+type LoopCallback<T> = (object: ObjectOrValue<T>, loopCount: number) => void;
+type StartCallback<T> = (object: ObjectOrValue<T>) => void;
+type TimelineCallback<T> = (object: ObjectOrValue<T>) => void;
+interface EasingOptions {
+    cacheSize?: number | null;
+    iterations?: number | null;
+    precision?: number | null;
+    newtonRaphsonMinSlope?: number | null;
+    subdivisionPrecision?: number | null;
+    subdivisionIterations?: number | null;
+}
 interface ITween {
     start(): Promise<ITween>;
     stop(): ITween;
@@ -25,7 +38,7 @@ interface ITween {
     setPosition(position: number): void;
     invalidate(): void;
     updateAllValues(delta?: number): void;
-    value: number;
+    progress: number;
     easingFunction: EasingFunction;
 }
 interface SmoothScrollCallbackData {
@@ -75,26 +88,22 @@ interface ScrollItemOptions {
     onScrolledOutOnce?: (data: SmoothScrollCallbackData) => void;
 }
 
-interface EasingOptions {
-    iterations?: number;
-    cacheSize?: number;
-}
 declare class Tween<T extends TweenableObject = TweenableObject> implements ITween {
     durationMS: number;
     isPlaying: boolean;
     delayTime: number;
     startTime: number | null;
     easingFunction: EasingFunction;
-    object: T | null;
-    value: number;
-    onTimelineInCallback: TimelineCallback<T> | null;
-    onTimelineOutCallback: TimelineCallback<T> | null;
-    onTimelineVisibleCallback: TimelineCallback<T> | null;
-    onTimelineInvisibleCallback: TimelineCallback<T> | null;
-    timelineIn: boolean;
-    previousTimelineIn: boolean;
-    timelineVisible: boolean;
-    previousTimelineVisible: boolean;
+    progress: number;
+    onTimelineInCallback: (() => void) | null;
+    onTimelineOutCallback: (() => void) | null;
+    onTimelineVisibleCallback: (() => void) | null;
+    onTimelineInvisibleCallback: (() => void) | null;
+    isTimelineIn: boolean;
+    isPreviousTimelineIn: boolean;
+    isTimelineVisible: boolean;
+    isPreviousTimelineVisible: boolean;
+    private _objectOrValue;
     private _onUpdateCallback;
     private _onLoopCallback;
     private _onCompleteCallback;
@@ -127,10 +136,10 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     start(time?: number): Promise<this>;
     stop(): this;
     delay(amount: number): this;
-    easing(_easing?: EasingType, { iterations, cacheSize }?: EasingOptions): this;
+    easing(_easing?: EasingType, easingOptions?: EasingOptions): this;
     onStart(callback: StartCallback<T>): this;
     onUpdate(callback: UpdateCallback<T>): this;
-    onComplete(callback?: CompleteCallback<T> | null): this;
+    onComplete(callback: CompleteCallback<T>): this;
     onTimelineIn(callback: TimelineCallback<T>): this;
     onTimelineOut(callback: TimelineCallback<T>): this;
     onTimelineVisible(callback: TimelineCallback<T>): this;
@@ -144,17 +153,20 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
 interface TimelineOptions {
     delay?: number;
 }
-declare abstract class AbstractTimeline implements ITween {
+declare class Timeline {
     previousPosition: number;
     startTime: number | null;
     delayTime: number;
     durationMS: number;
-    value: number;
+    progress: number;
     easingFunction: (t: number) => number;
     totalTime: number;
     protected _driverTween: Tween | null;
     protected _tweens: ITween[];
     protected _loopNum: number;
+    private _startTimes;
+    private _durations;
+    private _cursor;
     constructor({ delay }?: TimelineOptions);
     protected static setTweenIn(tween: Tween, isIn: boolean): void;
     protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
@@ -162,18 +174,6 @@ declare abstract class AbstractTimeline implements ITween {
     loop(num?: number): this;
     stop(): this;
     destroy(): void;
-    start(): Promise<this>;
-    abstract setPosition(position: number): void;
-    abstract update(time: number): boolean;
-    updateAllValues(): void;
-    invalidate(): void;
-}
-
-declare class Timeline extends AbstractTimeline {
-    private _startTimes;
-    private _durations;
-    private _cursor;
-    constructor(options?: TimelineOptions);
     add(tween: ITween, offset?: number): this;
     at(time: number, tween: ITween): this;
     private _register;
@@ -214,12 +214,12 @@ declare class SmoothScroller {
     private _totalTickTime;
     private _scrollFrom;
     private _easing;
-    private _getScrollFn;
-    private _tickHandler;
-    private _touchStartHandler;
-    private _mouseDownHandler;
-    private _wheelHandler;
-    private _scrollHandler;
+    private _getScrollPosition;
+    private _onTickFunk;
+    private _onTouchStart;
+    private _onMouseDown;
+    private _onWheel;
+    private _onScroll;
     constructor({ container, content, easing, scrollDuration, listener, debug, onResize }?: SmoothScrollOptions);
     private _setupListeners;
     private _setupDebug;
@@ -254,11 +254,12 @@ declare class SmoothScroller {
 }
 
 declare class CubicBezier implements BezierLike {
-    private _iterations;
+    iterations: number;
+    precision: number;
+    newtonRaphsonMinSlope: number;
+    subdivisionPrecision: number;
+    subdivisionIterations: number;
     private _cacheSize;
-    private _newtonRaphsonMinSlope;
-    private _subdivisionPrecision;
-    private _subdivisionIterations;
     private _cachedValueStepSize;
     private _cachedValues;
     private _x1;
@@ -266,7 +267,6 @@ declare class CubicBezier implements BezierLike {
     private _x2;
     private _y2;
     private _isPreComputed;
-    private _precision;
     private static _calculate;
     private static _getSlope;
     constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
@@ -275,43 +275,32 @@ declare class CubicBezier implements BezierLike {
     private _preCompute;
     private _getT;
     get(x: number): number;
-    setIterations(x: number): void;
-    setCacheSize(x: number): void;
+    set cacheSize(x: number);
+    get cacheSize(): number;
 }
 
 declare class TweenManager {
     private static _tweens;
-    private static _time;
     private static _easingCache;
     private static _isUpdating;
     static bezierIterations: number | null;
     static bezierCacheSize: number | null;
+    static bezierPrecision: number | null;
+    static bezierNewtonRaphsonMinSlope: number | null;
+    static bezierSubdivisionPrecision: number | null;
+    static bezierSubdivisionIterations: number | null;
     static getAll(): ITween[];
     static removeAll(): void;
     static add(tween: ITween): void;
     static remove(tween: ITween): void;
-    static onlyHasDelayedTweens(time: number): boolean;
     static onTick(time: number): boolean;
-    static setBezierIterations(x: number): void;
-    static setBezierCacheSize(x: number): void;
     static getEasingFromCache(key: string): CubicBezier;
-}
-
-/**
- * @deprecated TweenChain is deprecated. Please use Timeline instead.
- * This class maps the old array-based constructor to the new Timeline.add API.
- */
-declare class TweenChain extends Timeline {
-    constructor(tweens: ITween[], options?: {
-        delay?: number;
-    });
+    static setEasingOptions(bezier: CubicBezier | BezierLike, easingOptions?: EasingOptions): void;
 }
 
 type RenderCallback = (ms: number) => boolean | void;
-type CleanupCallback = () => void;
 declare class RenderLoop {
     private static _subscribers;
-    private static _cleanups;
     private static _isUpdating;
     private static _activeCount;
     private static _ms;
@@ -322,13 +311,12 @@ declare class RenderLoop {
     private static _isAnimating;
     private static _requestAnimation;
     private static _requestID;
-    private static _onlyHasDelayedTweens;
     private static _isFirstTime;
     private static _loopHandler;
     private static _animate;
     private static _compact;
     static stop(callback?: () => void): void;
-    static add(callback: RenderCallback, cleanUp?: CleanupCallback): void;
+    static add(callback: RenderCallback): void;
     static reset(): void;
     static remove(callback: RenderCallback): void;
     static trigger(): void;
@@ -371,5 +359,5 @@ declare function timeline(options?: {
 declare const delay: (seconds: number) => Promise<Tween<{}>>;
 declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
 
-export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenChain, TweenManager, animate, delay, smoothScroll, timeline };
-export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingType, ITween, LoopCallback, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };
+export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenManager, animate, delay, smoothScroll, timeline };
+export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingOptions, EasingType, ITween, LoopCallback, ObjectOrValue, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };

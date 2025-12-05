@@ -36,7 +36,6 @@ import {
 
 export { CubicBezier } from './math/CubicBezier.js';
 export { TweenManager } from './move/TweenManager.js';
-export { TweenChain } from './move/TweenChain.js';
 export { RenderLoop } from './move/RenderLoop.js';
 export * from './types.js';
 
@@ -48,7 +47,10 @@ export function animate<T extends TweenableObject>(
 	duration: number = 1,
 	easing: EasingType = 'linear'
 ): Promise<Tween<T>> {
-	return new Tween(target, duration).to(to).easing(easing).start();
+	return new Tween(target, duration)
+		.to(to)
+		.easing(easing)
+		.start();
 }
 
 export function timeline(options?: { delay?: number }): Timeline {

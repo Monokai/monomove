@@ -74,27 +74,42 @@ export class SmoothScroller {
 	private _scrollFrom = 0;
 	private _easing: EasingFunction;
 
-	private _getScrollFn: () => number;
+	private _getScrollPosition: () => number;
 
-	private _tickHandler = this._onTick.bind(this);
-	private _touchStartHandler = () => {
-		if (!this.isLocked) this._isTouch = true;
+	private _onTickFunk = this._onTick.bind(this);
+
+	private _onTouchStart = () => {
+		if (!this.isLocked) {
+			this._isTouch = true;
+		}
 	};
-	private _mouseDownHandler = (e: Event) => {
+
+	private _onMouseDown = (e: Event) => {
 		e.stopPropagation();
-		if (!this.isLocked) this._isTouch = false;
+
+		if (!this.isLocked) {
+			this._isTouch = false;
+		}
 	};
-	private _wheelHandler = () => {
-		if (this.isLocked) return;
+
+	private _onWheel = () => {
+		if (this.isLocked) {
+			return;
+		}
+
 		this._scrollTween.stop();
 		this._isTouch = false;
 	};
-	private _scrollHandler = () => {
-		if (this.isLocked) return;
+
+	private _onScroll = () => {
+		if (this.isLocked) {
+			return;
+		}
+
 		this._isAnimating = true;
 
 		const maxScroll = Math.max(0, this.scrollHeight - this._viewportHeight);
-		const current = this._getScrollFn();
+		const current = this._getScrollPosition();
 
 		this._targetScroll = current < 0 ? 0 : current > maxScroll ? maxScroll : current;
 		this._scrollFrom = this.scroll;
@@ -114,39 +129,41 @@ export class SmoothScroller {
 		this._container = container;
 		this._content = content;
 		this._listener = listener;
-		this._debug = debug || false;
+		this._debug = debug;
 		this._easing = easing;
 		this._onResizeFunk = onResize || null;
 
 		if ('scrollY' in this._listener) {
-			this._getScrollFn = () => (this._listener as Window).scrollY;
+			this._getScrollPosition = () => (this._listener as Window).scrollY;
 		} else if ('pageYOffset' in this._listener) {
-			this._getScrollFn = () => (this._listener as Window).pageYOffset;
+			this._getScrollPosition = () => (this._listener as Window).pageYOffset;
 		} else {
 			const el = this._listener as HTMLElement;
 
-			this._getScrollFn = () => el.scrollTop;
+			this._getScrollPosition = () => el.scrollTop;
 		}
 
 		this._setupListeners();
 		this._setupDebug();
 
-		RenderLoop.add(this._tickHandler);
+		RenderLoop.add(this._onTickFunk);
 		RenderLoop.play();
 
 		this.resize();
 	}
 
 	private _setupListeners() {
-		if (!this._listener) return;
+		if (!this._listener) {
+			return;
+		}
 
 		const opts = PASSIVE_OPTS as EventListenerOptions;
 		const l = this._listener;
 
-		l.addEventListener('touchstart', this._touchStartHandler, opts);
-		l.addEventListener('scroll', this._scrollHandler, opts);
-		l.addEventListener('mousedown', this._mouseDownHandler, opts);
-		l.addEventListener('wheel', this._wheelHandler, opts);
+		l.addEventListener('touchstart', this._onTouchStart, opts);
+		l.addEventListener('scroll', this._onScroll, opts);
+		l.addEventListener('mousedown', this._onMouseDown, opts);
+		l.addEventListener('wheel', this._onWheel, opts);
 	}
 
 	private _setupDebug() {
@@ -157,7 +174,9 @@ export class SmoothScroller {
 	}
 
 	private _onTick(ms: number) {
-		if (this.isLocked) return true;
+		if (this.isLocked) {
+			return true;
+		}
 
 		const sw = this._content.scrollWidth;
 		const sh = this._content.scrollHeight;
@@ -165,10 +184,14 @@ export class SmoothScroller {
 		if (sw !== this.scrollWidth || sh !== this.scrollHeight) {
 			this.scrollWidth = sw;
 			this.scrollHeight = sh;
+
+			if (sw !== this._previousScrollWidth || sh !== this._previousScrollHeight) {
+				this.resize();
+			}
+
 			this._previousScrollWidth = sw;
 			this._previousScrollHeight = sh;
 
-			this.resize();
 			this.scroll = this._scrollFrom = this._targetScroll;
 			this._updateAll(this.scroll, ms);
 
@@ -188,7 +211,8 @@ export class SmoothScroller {
 
 		// Fail-safe: If not animating, but actual scroll differed from internal state (e.g. event missed), wake up.
 		if (!this._isAnimating) {
-			const actual = this._getScrollFn();
+			const actual = this._getScrollPosition();
+
 			if (Math.abs(actual - this.scroll) > 1) {
 				this._isAnimating = true;
 				this._targetScroll = actual;
@@ -268,7 +292,7 @@ export class SmoothScroller {
 	}
 
 	public getScrollPosition() {
-		return this._getScrollFn();
+		return this._getScrollPosition();
 	}
 
 	public resize() {
@@ -436,7 +460,7 @@ export class SmoothScroller {
 				item.setVisible(false);
 			} else {
 				this._activeItems.add(item);
-				// Force initial update to establish state (and run onUpdate for first frame)
+
 				item.update(this.scroll, this._viewportHeight, this.isDown, true);
 			}
 
@@ -456,6 +480,7 @@ export class SmoothScroller {
 			if (item.smoothing) {
 				this._smoothItems.add(item);
 			}
+
 			if (item.isVisible && !item.smoothing) {
 				this._activeItems.add(item);
 			}
@@ -471,6 +496,7 @@ export class SmoothScroller {
 		for (const item of this._items) {
 			if (set.has(item.element)) {
 				item.observer?.unobserve(item.element);
+
 				this._activeItems.delete(item);
 				this._smoothItems.delete(item);
 			} else {
@@ -498,11 +524,15 @@ export class SmoothScroller {
 		const dist = Math.abs(position - this.scroll);
 		const t = time ?? clamp(dist * 0.00025, 0.25, 2.5);
 
-		return this._scrollTween.from({ y: this.scroll }).to({ y: position }, t).start();
+		return this._scrollTween
+			.from({ y: this.scroll })
+			.to({ y: position }, t)
+			.start();
 	}
 
 	public scrollToElement(node: HTMLElement, offset = 0, time: number | null = null) {
 		const box = SmoothScroller.getBox(node);
+
 		return this.scrollTo(box.top + offset, time);
 	}
 
@@ -553,15 +583,16 @@ export class SmoothScroller {
 		if (this._listener) {
 			const l = this._listener;
 			const opts = PASSIVE_OPTS as EventListenerOptions;
-			l.removeEventListener('touchstart', this._touchStartHandler, opts);
-			l.removeEventListener('wheel', this._wheelHandler, opts);
-			l.removeEventListener('mousedown', this._mouseDownHandler, opts);
-			l.removeEventListener('scroll', this._scrollHandler, opts);
+
+			l.removeEventListener('touchstart', this._onTouchStart, opts);
+			l.removeEventListener('wheel', this._onWheel, opts);
+			l.removeEventListener('mousedown', this._onMouseDown, opts);
+			l.removeEventListener('scroll', this._onScroll, opts);
 		}
 
 		this.reset();
 		this.stop();
 
-		RenderLoop.remove(this._tickHandler);
+		RenderLoop.remove(this._onTickFunk);
 	}
 }

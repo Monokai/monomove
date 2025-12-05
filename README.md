@@ -24,7 +24,7 @@ npm install --save @monokai/monomove
 The recommended way to use Monomove is via esm style modules. This way of importing supports tree-shaking and keeps your packages small.
 
 ```js
-import {Tween} from '@monokai/monomove';
+import { Tween } from '@monokai/monomove';
 ```
 
 #### CommonJS
@@ -50,7 +50,7 @@ const {SmoothScroller} = window.monomove;
 Alternatively, you can directly import from the source files in your project. The source files are not transpiled and potentially use some JavaScript syntax that's not cross-browser compatible.
 
 ```js
-import {Tween} from 'monomove/source';
+import { Tween } from 'monomove/source';
 ```
 
 ## Tween
@@ -60,7 +60,7 @@ A minimal animation tweening utility.
 ### Importing it:
 
 ```js
-import {Tween} from '@monokai/monomove';
+import { Tween } from '@monokai/monomove';
 ```
 
 ### Using it
@@ -71,7 +71,7 @@ Simple animation, tweening the opacity:
 const element = document.getElementById('my-id');
 const duration = 0.2; // seconds
 
-await new Tween(({value}) => {
+await new Tween(value => {
 	element.style.opacity = value;
 }, duration)
 	.start();
@@ -80,7 +80,7 @@ await new Tween(({value}) => {
 Tweening position with easing:
 
 ```js
-await new Tween(({value}) => {
+await new Tween(value => {
 	element.style.left = `${value * 100}px`;
 }, duration)
 	.easing('0.25, 0.25, 0, 1') // css style easing
@@ -113,7 +113,7 @@ Adding tweens together and create a single timeline
 ### Importing it:
 
 ```js
-import {Timeline} from '@monokai/monomove';
+import { Timeline } from '@monokai/monomove';
 ```
 
 ### Using it
@@ -124,10 +124,10 @@ Create a timeline of two tweens and jump to 50% of the timeline:
 
 ```js
 const timeline = new Timeline([
-	new Tween(({value}) => {
+	new Tween(value => {
 		element.style.opacity = value * 0.5;
 	}, 2),
-	new Tween(({value}) => {
+	new Tween(value => {
 		element.style.left = `${value * 100}px`;
 	}, 1).delay(0.5)
 ])
@@ -138,7 +138,7 @@ timeline.setPosition(0.5);
 
 
 ```js
-import {TweenChain} from '@monokai/monomove';
+import { TweenChain } from '@monokai/monomove';
 ```
 
 ### Using it
@@ -149,10 +149,10 @@ Create a chain of two tweens and jump to 50% of the timeline:
 
 ```js
 const tweenChain = new TweenChain([
-	new Tween(({value}) => {
+	new Tween(value => {
 		element.style.opacity = value * 0.5;
 	}, 2),
-	new Tween(({value}) => {
+	new Tween(value => {
 		element.style.left = `${value * 100}px`;
 	}, 1).delay(0.5)
 ])
@@ -167,7 +167,7 @@ tweenChain.setPosition(0.5);
 ### Importing it:
 
 ```js
-import {TweenManager} from '@monokai/monomove';
+import { TweenManager } from '@monokai/monomove';
 ```
 
 The tween manager takes care of running and cleaning up tween instances. Whenever you want to immediately delete tweens, you can use this class
@@ -185,7 +185,7 @@ TweenManager.removeAll();
 ### Importing it:
 
 ```js
-import {RenderLoop} from '@monokai/monomove';
+import { RenderLoop } from '@monokai/monomove';
 ```
 
 The main responsibility of the render loop is to keep track of the time and triggering the tweens on each drawing frame of the browser. 
@@ -197,21 +197,14 @@ function onTick(ms) {
 	console.log(`elapsed milliseconds: ${ms}`);
 }
 
-RenderLoop.add(this, onTick);
+RenderLoop.add(onTick);
 ```
 
 ### Remove it
 
 ```js
-RenderLoop.remove(this, onTick);
+RenderLoop.remove(onTick);
 ```
-
-### Remove all hooks on the `this` context
-
-```js
-RenderLoop.remove(this);
-```
-
 
 
 ## delay
@@ -219,7 +212,7 @@ RenderLoop.remove(this);
 ### Importing it:
 
 ```js
-import {delay} from '@monokai/monomove';
+import { delay } from '@monokai/monomove';
 ```
 
 A simple utility to wait a bit without relying on `setTimeout`;
@@ -239,7 +232,7 @@ The Smooth Scroller lets you control DOM elements based on the scroll position i
 ### Importing it:
 
 ```js
-import {SmoothScroller} from '@monokai/monomove';
+import { SmoothScroller } from '@monokai/monomove';
 ```
 
 ### Using it

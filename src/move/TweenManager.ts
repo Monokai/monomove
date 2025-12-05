@@ -1,14 +1,17 @@
 import { CubicBezier } from '../math/CubicBezier.js';
-import type { ITween } from '../types.js';
+import type { BezierLike, EasingOptions, ITween } from '../types.js';
 
 export class TweenManager {
 	private static _tweens: (ITween | null)[] = [];
-	private static _time = 0;
 	private static _easingCache = new Map<string, CubicBezier>();
 	private static _isUpdating = false;
 
 	public static bezierIterations: number | null = null;
 	public static bezierCacheSize: number | null = null;
+	public static bezierPrecision: number | null = null;
+	public static bezierNewtonRaphsonMinSlope: number | null = null;
+	public static bezierSubdivisionPrecision: number | null = null;
+	public static bezierSubdivisionIterations: number | null = null;
 
 	public static getAll(): ITween[] {
 		const result: ITween[] = [];
@@ -50,22 +53,6 @@ export class TweenManager {
 		}
 	}
 
-	public static onlyHasDelayedTweens(time: number) {
-		const tweens = this._tweens;
-		const len = tweens.length;
-
-		for (let i = 0; i < len; i++) {
-			const t = tweens[i];
-
-			if (t !== null) {
-				if (t.startTime === null || time >= t.startTime) {
-					return false;
-				}
-			}
-		}
-		return len > 0;
-	}
-
 	public static onTick(time: number): boolean {
 		const tweens = this._tweens;
 		const initialLen = tweens.length;
@@ -74,7 +61,6 @@ export class TweenManager {
 			return false;
 		}
 
-		this._time = time;
 		this._isUpdating = true;
 
 		let activeCount = 0;
@@ -106,19 +92,36 @@ export class TweenManager {
 		return activeCount > 0;
 	}
 
-	public static setBezierIterations(x: number) {
-		this.bezierIterations = x;
-	}
-
-	public static setBezierCacheSize(x: number) {
-		this.bezierCacheSize = x;
-	}
-
 	public static getEasingFromCache(key: string) {
 		if (!this._easingCache.has(key)) {
 			this._easingCache.set(key, new CubicBezier(key));
 		}
 
 		return this._easingCache.get(key) as CubicBezier;
+	}
+
+	public static setEasingOptions(
+		bezier: CubicBezier | BezierLike,
+		easingOptions: EasingOptions = {}
+	) {
+		const defaults = {
+			iterations: TweenManager.bezierIterations,
+			cacheSize: TweenManager.bezierCacheSize,
+			precision: TweenManager.bezierPrecision,
+			newtonRaphsonMinSlope: TweenManager.bezierNewtonRaphsonMinSlope,
+			subdivisionPrecision: TweenManager.bezierSubdivisionPrecision,
+			subdivisionIterations: TweenManager.bezierSubdivisionIterations,
+			...easingOptions
+		};
+
+		const keys = Object.keys(defaults) as (keyof typeof defaults)[];
+
+		for (const key of keys) {
+			const value = defaults[key];
+
+			if (value !== null) {
+				bezier[key] = value;
+			}
+		}
 	}
 }
