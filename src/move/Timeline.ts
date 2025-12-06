@@ -1,7 +1,6 @@
-import { Tween } from './Tween.js';
 import { tween } from '../index.js';
 import { clamp } from '../math/clamp.js';
-import type { ITween, EasingType } from '../types.js';
+import type { ITween, EasingType, IScalarTween } from '../types.js';
 
 export interface TimelineOptions {
 	delay?: number;
@@ -28,7 +27,7 @@ export class Timeline {
 	private _onLoop: (() => void) | undefined;
 	private _isDirty: boolean = true;
 
-	private _driver: Tween | null = null;
+	private _driver: IScalarTween | null = null;
 	private _easing: EasingType = 'linear';
 	private _timeScale: number = 1;
 
@@ -128,7 +127,8 @@ export class Timeline {
 				this._onComplete?.();
 			});
 
-		return this._driver.start().then(() => this);
+		// _driver is assigned above, so it is not null here.
+		return this._driver!.start().then(() => this);
 	}
 
 	public pause(): this {
@@ -174,27 +174,24 @@ export class Timeline {
 		const len = this._items.length;
 
 		// 1. Reset FUTURE items (Reverse Loop)
-		// We process future items first to reset them if we are scrubbing backwards.
 		for (let i = len - 1; i >= 0; i--) {
 			const item = this._items[i];
 
 			if (currentTime < item.startTime) {
 				const t = item.tween;
-				const isVisible = t instanceof Tween && t.isTimelineVisible;
+
+				// We don't need 'instanceof Tween' check if ITween has these properties
+				// But we need to ensure the property exists on ITween
+				const isVisible = t.isTimelineVisible;
 
 				if (t.progress > 0 || isVisible || force) {
-					// 1. Restore state using valid cache (if exists)
 					t.setProgress(0, true);
 
-					// 2. Invalidate cache SO THAT if previous tweens change the start values,
-					// this tween will re-capture them when it becomes active again.
 					if (force) {
 						t.invalidate();
 					}
 
-					// if (isVisible) {
-					Timeline.setTweenVisibility(t as Tween, false);
-					// }
+					Timeline.setTweenVisibility(t, false);
 				}
 			}
 		}
@@ -204,7 +201,6 @@ export class Timeline {
 			const item = this._items[i];
 			const { tween, startTime, endTime, duration } = item;
 
-			// Skip future items (handled in pass 1)
 			if (currentTime < startTime) {
 				continue;
 			}
@@ -216,14 +212,10 @@ export class Timeline {
 
 					tween.setProgress(1, true);
 
-					if (tween instanceof Tween) {
-						// if (!tween.isTimelineVisible) {
-						Timeline.setTweenVisibility(tween, true);
-						// }
-						// Check "Out" trigger
-						if (oldProgress < 1 && tween.progress === 1) {
-							tween.onTimelineOutCallback?.();
-						}
+					Timeline.setTweenVisibility(tween, true);
+
+					if (oldProgress < 1 && tween.progress === 1) {
+						tween.onTimelineOutCallback?.();
 					}
 				}
 
@@ -237,24 +229,18 @@ export class Timeline {
 
 			tween.setProgress(progress, true);
 
-			if (tween instanceof Tween) {
-				// if (!tween.isTimelineVisible) {
-				Timeline.setTweenVisibility(tween, true);
-				// }
+			Timeline.setTweenVisibility(tween, true);
 
-				// Check "In" trigger
-				if (oldProgress === 0 && tween.progress > 0) {
-					tween.onTimelineInCallback?.();
-				}
-				// Check "Out" trigger
-				if (oldProgress < 1 && tween.progress === 1) {
-					tween.onTimelineOutCallback?.();
-				}
+			if (oldProgress === 0 && tween.progress > 0) {
+				tween.onTimelineInCallback?.();
+			}
+			if (oldProgress < 1 && tween.progress === 1) {
+				tween.onTimelineOutCallback?.();
 			}
 		}
 	}
 
-	protected static setTweenVisibility(tween: Tween, isVisible: boolean) {
+	protected static setTweenVisibility(tween: ITween, isVisible: boolean) {
 		tween.isTimelineVisible = isVisible;
 
 		if (tween.isTimelineVisible !== tween.isPreviousTimelineVisible) {

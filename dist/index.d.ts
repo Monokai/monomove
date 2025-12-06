@@ -1,11 +1,11 @@
 interface BezierLike {
     get(t: number): number;
-    cacheSize: number;
-    iterations: number;
-    precision: number;
-    newtonRaphsonMinSlope: number;
-    subdivisionPrecision: number;
-    subdivisionIterations: number;
+    cacheSize?: number;
+    iterations?: number;
+    precision?: number;
+    newtonRaphsonMinSlope?: number;
+    subdivisionPrecision?: number;
+    subdivisionIterations?: number;
 }
 type EasingFunction = (t: number) => number;
 type EasingType = string | EasingFunction | BezierLike;
@@ -13,7 +13,6 @@ type TweenableObject = Record<string, number>;
 type ObjectOrValue<T> = T | number | null;
 type ScalarUpdateCallback = (value: number, progress: number, delta: number) => void;
 type ObjectUpdateCallback<T> = (object: T, progress: number, delta: number) => void;
-type UpdateCallback<T> = ObjectUpdateCallback<T> | ScalarUpdateCallback;
 type CompleteCallback<T> = (object: ObjectOrValue<T>) => void;
 type LoopCallback<T> = (object: ObjectOrValue<T>, loopCount: number) => void;
 type StartCallback<T> = (object: ObjectOrValue<T>) => void;
@@ -27,19 +26,72 @@ interface EasingOptions {
     subdivisionIterations?: number | null;
 }
 interface ITween {
-    start(): Promise<ITween>;
-    stop(): ITween;
+    start(time?: number): Promise<any>;
+    stop(): any;
+    pause(): any;
     update(time: number): boolean;
-    startTime: number | null;
-    delayTime: number;
-    durationMS: number;
-    totalTime?: number;
-    delay(amount: number): ITween;
+    invalidate(): void;
+    delay(amount: number): any;
+    setProgress(progress: number, force?: boolean): void;
+    updateAllValues(delta?: number): void;
+    readonly startTime: number | null;
+    readonly delayTime: number;
+    readonly durationMS: number;
+    readonly totalTime?: number;
+    readonly progress: number;
+    readonly easingFunction: EasingFunction;
+    onTimelineInCallback: (() => void) | null;
+    onTimelineOutCallback: (() => void) | null;
+    onTimelineVisibleCallback: (() => void) | null;
+    onTimelineInvisibleCallback: (() => void) | null;
+    isTimelineVisible: boolean;
+    isPreviousTimelineVisible: boolean;
+}
+interface ITweenBase<Self> {
+    start(time?: number): Promise<Self>;
+    stop(): Self;
+    pause(): Self;
+    delay(amount: number): Self;
+    duration(seconds: number): Self;
+    easing(easing: EasingType, options?: EasingOptions): Self;
+    onStart(callback: (target: unknown) => void): Self;
+    onComplete(callback: (target: unknown) => void): Self;
+    loop(num?: number): Self;
+    onLoop(callback: (target: unknown, loopCount: number) => void): Self;
+    onTimelineIn(callback: (target: unknown) => void): Self;
+    onTimelineOut(callback: (target: unknown) => void): Self;
+    onTimelineVisible(callback: (target: unknown) => void): Self;
+    onTimelineInvisible(callback: (target: unknown) => void): Self;
+    rewind(): Self;
+    restart(): Promise<Self>;
     setProgress(progress: number, force?: boolean): void;
     invalidate(): void;
-    updateAllValues(delta?: number): void;
-    progress: number;
-    easingFunction: EasingFunction;
+    readonly isPlaying: boolean;
+    readonly progress: number;
+    readonly startTime: number | null;
+    readonly delayTime: number;
+    readonly durationMS: number;
+    readonly totalTime?: number;
+}
+interface IScalarTween extends ITweenBase<IScalarTween> {
+    from(value: number): IScalarTween;
+    to(value: number, duration?: number): IScalarTween;
+    onUpdate(callback: ScalarUpdateCallback): IScalarTween;
+    onStart(callback: StartCallback<number>): IScalarTween;
+    onComplete(callback: CompleteCallback<number>): IScalarTween;
+}
+interface IObjectTween<T> extends ITweenBase<IObjectTween<T>> {
+    from(properties: Partial<T>): IObjectTween<T>;
+    to(properties: Partial<T>, duration?: number): IObjectTween<T>;
+    onUpdate(callback: ObjectUpdateCallback<T>): IObjectTween<T>;
+    onStart(callback: StartCallback<T>): IObjectTween<T>;
+    onComplete(callback: CompleteCallback<T>): IObjectTween<T>;
+}
+interface DOMRectLike {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
 }
 interface SmoothScrollCallbackData {
     item: HTMLElement;
@@ -59,12 +111,6 @@ interface SmoothScrollCallbackData {
     data?: unknown;
 }
 type SmoothScrollCallback = (data: SmoothScrollCallbackData) => void;
-interface DOMRectLike {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-}
 interface SmoothScrollOptions {
     container?: HTMLElement;
     content?: HTMLElement;
@@ -95,6 +141,7 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     startTime: number | null;
     easingFunction: EasingFunction;
     progress: number;
+    totalTime?: number;
     onTimelineInCallback: (() => void) | null;
     onTimelineOutCallback: (() => void) | null;
     onTimelineVisibleCallback: (() => void) | null;
@@ -125,6 +172,7 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     constructor();
     constructor(object: T, duration?: number);
     constructor(callback: ScalarUpdateCallback, duration?: number);
+    constructor(objectOrCallback: T | ScalarUpdateCallback, duration?: number);
     from(properties: Partial<T> | number): this;
     to(properties: Partial<T> | number, duration?: number): this;
     duration(duration: number): this;
@@ -132,22 +180,23 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     restart(): Promise<this>;
     loop(num?: number): this;
     onLoop(callback: LoopCallback<T>): this;
-    private _calculateStartValues;
-    startTween(time?: number): this;
-    start(time?: number): Promise<this>;
-    stop(): this;
     delay(amount: number): this;
     easing(_easing?: EasingType, easingOptions?: EasingOptions): this;
+    onUpdate(callback: ObjectUpdateCallback<T> | ScalarUpdateCallback): this;
     onStart(callback: StartCallback<T>): this;
-    onUpdate(callback: UpdateCallback<T>): this;
     onComplete(callback: CompleteCallback<T>): this;
     onTimelineIn(callback: TimelineCallback<T>): this;
     onTimelineOut(callback: TimelineCallback<T>): this;
     onTimelineVisible(callback: TimelineCallback<T>): this;
     onTimelineInvisible(callback: TimelineCallback<T>): this;
-    setProgress(progress: number, force?: boolean): void;
+    start(time?: number): Promise<this>;
+    startTween(time?: number): this;
+    stop(): this;
+    pause(): this;
+    private _calculateStartValues;
     updateAllValues(delta?: number): void;
-    invalidate(): this;
+    setProgress(progress: number, force?: boolean): void;
+    invalidate(): void;
     update(time: number): boolean;
 }
 
@@ -184,7 +233,7 @@ declare class Timeline {
     setProgress(progress: number): void;
     private _sort;
     private _updateChildren;
-    protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
+    protected static setTweenVisibility(tween: ITween, isVisible: boolean): void;
 }
 
 declare class SmoothScroller {
@@ -332,40 +381,15 @@ declare class RenderLoop {
     static isPlaying(): boolean;
 }
 
-/**
- * @license
- * Monomove - utilities for moving things
- *
- * Copyright © 2021-2025 Monokai (monokai.com)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the “Software”), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
-declare function tween(): Tween<TweenableObject>;
-declare function tween<T extends TweenableObject>(target: T, duration?: number): Tween<T>;
-declare function tween(target: ScalarUpdateCallback, duration?: number): Tween<TweenableObject>;
-declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<Tween<T>>;
+declare function tween(target: ScalarUpdateCallback, duration?: number): IScalarTween;
+declare function tween<T extends TweenableObject>(target: T, duration?: number): IObjectTween<T>;
+declare function tween(): IScalarTween;
+declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<IObjectTween<T>>;
 declare function timeline(options?: {
     delay?: number;
 }): Timeline;
-declare const delay: (seconds: number) => Promise<Tween<TweenableObject>>;
+declare const delay: (seconds: number) => Promise<IScalarTween>;
 declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
 
 export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenManager, animate, delay, smoothScroll, timeline, tween };
-export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingOptions, EasingType, ITween, LoopCallback, ObjectOrValue, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };
+export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingOptions, EasingType, IObjectTween, IScalarTween, ITween, ITweenBase, LoopCallback, ObjectOrValue, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject };
