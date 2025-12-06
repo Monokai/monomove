@@ -16,7 +16,7 @@ import type {
 	EasingOptions
 } from '../types.js';
 
-type KeyValueMap = Record<string, number>
+type KeyValueMap = Record<string, number>;
 
 export class Tween<T extends TweenableObject = TweenableObject> implements ITween {
 	public durationMS: number;
@@ -25,6 +25,7 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	public startTime: number | null;
 	public easingFunction: EasingFunction;
 	public progress: number;
+
 	public onTimelineInCallback: (() => void) | null = null;
 	public onTimelineOutCallback: (() => void) | null = null;
 	public onTimelineVisibleCallback: (() => void) | null = null;
@@ -39,11 +40,13 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	private _onLoopCallback: LoopCallback<T> | null;
 	private _onCompleteCallback: CompleteCallback<T> | null;
 	private _onStartCallback: StartCallback<T> | null;
+
 	private _valuesEnd: Partial<T>;
 	private _valuesStart: KeyValueMap;
 	private _propKeys: (keyof T)[];
 	private _propStartValues: number[];
 	private _propChangeValues: number[];
+
 	private _loopNum: number;
 	private _loopCount: number;
 	private _onStartCallbackFired: boolean;
@@ -52,11 +55,13 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	private _previousUpdateValue: number | null;
 	private _inverseDuration: number;
 	private _targetIsFunction: boolean;
-	private _isInitialized: boolean = false;
 
+	private _startValuesCalculated: boolean = false;
+
+	constructor();
 	constructor(object: T, duration?: number);
 	constructor(callback: ScalarUpdateCallback, duration?: number);
-	constructor(objectOrCallback: T | ScalarUpdateCallback, duration: number = 1) {
+	constructor(objectOrCallback?: T | ScalarUpdateCallback, duration: number = 1) {
 		this.durationMS = duration * 1000;
 		this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		this.easingFunction = (k) => k;
@@ -76,16 +81,23 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 		this._previousUpdateValue = null;
 
 		this._valuesStart = {};
+		this._valuesEnd = {};
 		this._propKeys = [];
 		this._propStartValues = [];
 		this._propChangeValues = [];
-		this._isInitialized = false;
+		this._startValuesCalculated = false;
 
-		if (typeof objectOrCallback === 'function') {
+		if (objectOrCallback === undefined) {
+			// Default to scalar variant (0 -> 1) if no args
+			this._targetIsFunction = true;
+			this._objectOrValue = 0;
+			this._onUpdateCallback = null;
+			this._valuesStart['value'] = 0;
+			this._valuesEnd = { value: 1 } as unknown as Partial<T>;
+		} else if (typeof objectOrCallback === 'function') {
 			this._targetIsFunction = true;
 			this._objectOrValue = 0;
 			this._onUpdateCallback = objectOrCallback;
-
 			this._valuesStart['value'] = 0;
 			this._valuesEnd = { value: 1 } as unknown as Partial<T>;
 		} else {
@@ -93,69 +105,81 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			this._objectOrValue = objectOrCallback;
 			this._onUpdateCallback = null;
 			this._valuesEnd = {};
-
-			const obj = this._objectOrValue as KeyValueMap;
-			const keys = Object.keys(obj);
-
-			for (let i = 0; i < keys.length; i++) {
-				const key = keys[i];
-				const val = obj[key];
-
-				if (typeof val === 'number') {
-					this._valuesStart[key] = val;
-				}
-			}
 		}
 	}
 
-	from(properties: Partial<T>) {
-		if (this._targetIsFunction) {
+	from(properties: Partial<T> | number) {
+		if (typeof properties === 'object' && properties !== null) {
+			// If we are in the "default scalar" state (no callback, value is 0),
+			// and .from() is called with an object, switch to object mode.
+			if (
+				this._targetIsFunction &&
+				this._onUpdateCallback === null &&
+				this._objectOrValue === 0
+			) {
+				this._targetIsFunction = false;
+				this._objectOrValue = {} as T; // Create internal object target
+				this._valuesStart = {}; // Clear default 'value'
+				this._valuesEnd = {};
+			}
+		}
+
+		if (typeof properties === 'number') {
+			this._valuesStart['value'] = properties;
+		} else if (this._targetIsFunction) {
 			const props = properties as KeyValueMap;
 			const keys = Object.keys(props);
-
 			for (const key of keys) {
 				const val = props[key];
-
-				if (typeof val === 'number') {
-					this._valuesStart[key] = val;
-				}
+				if (typeof val === 'number') this._valuesStart[key] = val;
 			}
 		} else {
 			for (const key in properties) {
 				const val = properties[key];
-
 				if (typeof val === 'number' && typeof this._objectOrValue !== 'number') {
-					(this._objectOrValue as KeyValueMap)[key] = val;
 					this._valuesStart[key] = val;
 				}
 			}
 		}
 
-		this._isInitialized = false;
-
-		if (this._onUpdateCallback) {
-			this.updateAllValues(0);
-		}
+		this._startValuesCalculated = false;
 
 		return this;
 	}
 
-	to(properties: Partial<T>, duration?: number) {
+	to(properties: Partial<T> | number, duration?: number) {
 		if (duration !== undefined) {
 			this.durationMS = duration * 1000;
 			this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
 		}
 
-		this._valuesEnd = { ...this._valuesEnd, ...properties };
-		this._isInitialized = false;
+		if (typeof properties === 'object' && properties !== null) {
+			// Same switch logic for .to()
+			if (
+				this._targetIsFunction &&
+				this._onUpdateCallback === null &&
+				this._objectOrValue === 0
+			) {
+				this._targetIsFunction = false;
+				this._objectOrValue = {} as T;
+				this._valuesStart = {};
+				this._valuesEnd = {};
+			}
+		}
 
+		if (typeof properties === 'number') {
+			(this._valuesEnd as any)['value'] = properties;
+		} else {
+			this._valuesEnd = { ...this._valuesEnd, ...properties };
+		}
+
+		this._startValuesCalculated = false;
 		return this;
 	}
 
 	duration(duration: number) {
 		this.durationMS = duration * 1000;
 		this._inverseDuration = this.durationMS > 0 ? 1 / this.durationMS : 0;
-
 		return this;
 	}
 
@@ -163,18 +187,14 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 		this.stop();
 		this.progress = 0;
 		this._elapsed = 0;
+		this._previousUpdateValue = null;
 
-		if (!this._targetIsFunction && this._objectOrValue) {
-			const obj = this._objectOrValue as KeyValueMap;
+		// IMPORTANT: Do NOT reset _startValuesCalculated here.
+		// We want to reuse the originally captured start values unless explicitly invalidated.
 
-			for (const key in this._valuesStart) {
-				obj[key] = this._valuesStart[key];
-			}
+		if (this._startValuesCalculated) {
+			this.setProgress(0);
 		}
-
-		this._isInitialized = false;
-		this.invalidate();
-
 		return this;
 	}
 
@@ -185,82 +205,54 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 	loop(num: number = Infinity) {
 		this._loopNum = num;
 		this._loopCount = num;
-
 		return this;
 	}
 
-	setLoopCallback(callback: LoopCallback<T>) {
+	onLoop(callback: LoopCallback<T>) {
 		this._onLoopCallback = callback;
-
 		return this;
 	}
 
-	private _init() {
-		if (this._isInitialized) {
-			return;
-		}
+	private _calculateStartValues() {
+		if (this._startValuesCalculated) return;
 
 		this._propKeys.length = 0;
 		this._propStartValues.length = 0;
 		this._propChangeValues.length = 0;
 
-		if (!this._targetIsFunction && this._objectOrValue) {
-			let hasEndValues = false;
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			for (const _ in this._valuesEnd) {
-				hasEndValues = true;
+		const obj = this._objectOrValue as KeyValueMap;
 
-				break;
-			}
-
-			if (!hasEndValues) {
-				const obj = this._objectOrValue as KeyValueMap;
-
-				for (const key in obj) {
-					if (key in this._valuesStart) {
-						const val = obj[key];
-
-						if (typeof val === 'number') {
-							(this._valuesEnd as KeyValueMap)[key] = val;
-						}
-					}
-				}
-			}
+		if (this._targetIsFunction) {
+			const start = this._valuesStart['value'] ?? 0;
+			const end = (this._valuesEnd as any).value ?? 1;
+			this._propKeys.push('value' as keyof T);
+			this._propStartValues.push(start);
+			this._propChangeValues.push(end - start);
 		}
+		else if (obj) {
+			for (const key in this._valuesEnd) {
+				const end = this._valuesEnd[key];
+				if (end === undefined) continue;
 
-		for (const key in this._valuesEnd) {
-			const end = this._valuesEnd[key];
-
-			let start = this._valuesStart[key];
-
-			if (!this._targetIsFunction && start === undefined && this._objectOrValue) {
-				const obj = this._objectOrValue as KeyValueMap;
-				const currentVal = obj[key];
-
-				if (typeof currentVal === 'number') {
-					start = currentVal;
-
-					this._valuesStart[key] = start;
+				let start: number;
+				if (this._valuesStart[key] !== undefined) {
+					start = this._valuesStart[key];
 				}
-			}
+				else {
+					const currentVal = obj[key];
+					start = (typeof currentVal === 'number') ? currentVal : 0;
+				}
 
-			if (this._targetIsFunction && start === undefined) {
-				start = 0;
-			}
-
-			if (typeof start === 'number' && typeof end === 'number') {
 				this._propKeys.push(key as keyof T);
 				this._propStartValues.push(start);
 				this._propChangeValues.push(end - start);
 			}
 		}
 
-		this._isInitialized = true;
+		this._startValuesCalculated = true;
 	}
 
 	startTween(time: number = RenderLoop.getTime()) {
-		this._init();
-
 		const wasPlaying = this.isPlaying;
 
 		this._elapsed = 0;
@@ -275,134 +267,76 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			TweenManager.add(this);
 			RenderLoop.triggerAnimation();
 		}
-
 		return this;
 	}
 
 	start(time?: number): Promise<this> {
 		const onComplete = this._onCompleteCallback;
-
 		return new Promise((resolve) => {
 			this._onCompleteCallback = (obj) => {
 				onComplete?.(obj);
-
 				this._onCompleteCallback = onComplete;
-
 				resolve(this);
 			};
-
 			this.startTween(time);
 		});
 	}
 
 	stop() {
-		if (!this.isPlaying) {
-			return this;
-		}
-
+		if (!this.isPlaying) return this;
 		this.isPlaying = false;
-
 		TweenManager.remove(this);
-
 		return this;
 	}
 
 	delay(amount: number) {
 		this.delayTime = amount * 1000;
-
 		return this;
 	}
 
-	easing(
-		_easing: EasingType = (k) => k,
-		easingOptions?: EasingOptions
-	) {
-		if (!_easing) {
-			return this;
-		}
+	easing(_easing: EasingType = (k) => k, easingOptions?: EasingOptions) {
+		if (!_easing) return this;
 
 		if (typeof _easing === 'string') {
 			const cached = TweenManager.getEasingFromCache(_easing);
-
-			if (easingOptions) {
-				TweenManager.setEasingOptions(cached, easingOptions);
-			}
-
+			if (easingOptions) TweenManager.setEasingOptions(cached, easingOptions);
 			this.easingFunction = cached.get.bind(cached);
 		} else if (typeof _easing === 'object' && _easing !== null && 'get' in _easing) {
 			const bezier = _easing as BezierLike;
-
-			if (easingOptions) {
-				TweenManager.setEasingOptions(bezier, easingOptions);
-			}
-
+			if (easingOptions) TweenManager.setEasingOptions(bezier, easingOptions);
 			this.easingFunction = bezier.get.bind(bezier);
 		} else {
 			this.easingFunction = _easing as EasingFunction;
 		}
-
 		return this;
 	}
 
-	onStart(callback: StartCallback<T>) {
-		this._onStartCallback = callback;
+	onStart(callback: StartCallback<T>) { this._onStartCallback = callback; return this; }
+	onUpdate(callback: UpdateCallback<T>) { this._onUpdateCallback = callback; return this; }
+	onComplete(callback: CompleteCallback<T>) { this._onCompleteCallback = callback; return this; }
+	onTimelineIn(callback: TimelineCallback<T>) { this.onTimelineInCallback = () => callback(this._objectOrValue); return this; }
+	onTimelineOut(callback: TimelineCallback<T>) { this.onTimelineOutCallback = () => callback(this._objectOrValue); return this; }
+	onTimelineVisible(callback: TimelineCallback<T>) { this.onTimelineVisibleCallback = () => callback(this._objectOrValue); return this; }
+	onTimelineInvisible(callback: TimelineCallback<T>) { this.onTimelineInvisibleCallback = () => callback(this._objectOrValue); return this; }
 
-		return this;
-	}
+	setProgress(progress: number, force: boolean = false) {
+		if (!this._startValuesCalculated) {
+			this._calculateStartValues();
+		}
 
-	onUpdate(callback: UpdateCallback<T>) {
-		this._onUpdateCallback = callback;
+		const normalized = progress < 0 ? 0 : progress > 1 ? 1 : progress;
 
-		return this;
-	}
-
-	onComplete(callback: CompleteCallback<T>) {
-		this._onCompleteCallback = callback;
-
-		return this;
-	}
-
-	onTimelineIn(callback: TimelineCallback<T>) {
-		this.onTimelineInCallback = () => callback(this._objectOrValue);
-
-		return this;
-	}
-
-	onTimelineOut(callback: TimelineCallback<T>) {
-		this.onTimelineOutCallback = () => callback(this._objectOrValue);
-
-		return this;
-	}
-
-	onTimelineVisible(callback: TimelineCallback<T>) {
-		this.onTimelineVisibleCallback = () => callback(this._objectOrValue);
-
-		return this;
-	}
-
-	onTimelineInvisible(callback: TimelineCallback<T>) {
-		this.onTimelineInvisibleCallback = () => callback(this._objectOrValue);
-
-		return this;
-	}
-
-	setPosition(position: number) {
-		this._init();
-
-		const normalized = position < 0 ? 0 : position > 1 ? 1 : position;
+		if (!force && this._previousUpdateValue !== null && Math.abs(normalized - this._previousUpdateValue) < 1e-6) {
+			return;
+		}
 
 		this.progress = this.easingFunction(normalized);
 		this.updateAllValues();
+		this._previousUpdateValue = normalized;
 	}
 
 	updateAllValues(delta: number = 0) {
-		if (!this._isInitialized) {
-			this._init();
-		}
-
-		if (this.progress === this._previousUpdateValue) {
-			return;
-		}
+		if (!this._startValuesCalculated) this._calculateStartValues();
 
 		if (this._targetIsFunction) {
 			if (this._propStartValues.length > 0) {
@@ -414,32 +348,32 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 					(this._onUpdateCallback as ScalarUpdateCallback)(val, this.progress, delta);
 				}
 			}
-		} else {
-			const len = this._propKeys.length;
-			const keys = this._propKeys;
-			const starts = this._propStartValues;
-			const changes = this._propChangeValues;
-			const obj = this._objectOrValue as KeyValueMap;
 
-			for (let i = 0; i < len; i++) {
-				obj[keys[i] as string] = starts[i] + changes[i] * this.progress;
-			}
-
-			if (this._onUpdateCallback && this._objectOrValue) {
-				(this._onUpdateCallback as ObjectUpdateCallback<T>)(
-					this._objectOrValue as T,
-					this.progress,
-					delta
-				);
-			}
+			return;
 		}
 
-		this._previousUpdateValue = this.progress;
+		const len = this._propKeys.length;
+		const keys = this._propKeys;
+		const starts = this._propStartValues;
+		const changes = this._propChangeValues;
+		const obj = this._objectOrValue as KeyValueMap;
+
+		for (let i = 0; i < len; i++) {
+			obj[keys[i] as string] = starts[i] + changes[i] * this.progress;
+		}
+
+		if (this._onUpdateCallback && this._objectOrValue) {
+			(this._onUpdateCallback as ObjectUpdateCallback<T>)(
+				this._objectOrValue as T,
+				this.progress,
+				delta
+			);
+		}
 	}
 
 	invalidate() {
 		this._previousUpdateValue = null;
-
+		this._startValuesCalculated = false;
 		return this;
 	}
 
@@ -448,9 +382,12 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			return true;
 		}
 
+		if (!this._startValuesCalculated) {
+			this._calculateStartValues();
+		}
+
 		if (this._onStartCallbackFired === false) {
 			this._onStartCallback?.(this._objectOrValue);
-
 			this._onStartCallbackFired = true;
 
 			RenderLoop.trigger();
@@ -488,7 +425,6 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 
 			if (this._loopCount > 0) {
 				this._onLoopCallback?.(this._objectOrValue, this._loopNum - this._loopCount);
-
 				this._loopCount--;
 				this.startTime += this.durationMS;
 				this._elapsed = time - this.startTime;
@@ -499,7 +435,6 @@ export class Tween<T extends TweenableObject = TweenableObject> implements ITwee
 			}
 
 			const restarted = tempStartTime !== this.startTime;
-
 			this.isPlaying = restarted || (this.isPlaying && normalizedElapsed < 1);
 
 			return this.isPlaying;

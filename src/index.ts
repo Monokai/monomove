@@ -31,7 +31,8 @@ import {
 	EasingType,
 	SmoothScrollCallback,
 	ScrollItemOptions,
-	SmoothScrollOptions
+	SmoothScrollOptions,
+	ScalarUpdateCallback
 } from './types.js';
 
 export { CubicBezier } from './math/CubicBezier.js';
@@ -41,13 +42,23 @@ export * from './types.js';
 
 export { Tween, Timeline, SmoothScroller };
 
+export function tween(): Tween<TweenableObject>;
+export function tween<T extends TweenableObject>(target: T, duration?: number): Tween<T>;
+export function tween(target: ScalarUpdateCallback, duration?: number): Tween<TweenableObject>;
+export function tween<T extends TweenableObject>(
+	target?: T | ScalarUpdateCallback,
+	duration: number = 1
+): Tween<T> | Tween<TweenableObject> {
+	return new Tween(target as unknown as T, duration);
+}
+
 export function animate<T extends TweenableObject>(
 	target: T,
 	to: Partial<T>,
 	duration: number = 1,
 	easing: EasingType = 'linear'
 ): Promise<Tween<T>> {
-	return new Tween(target, duration)
+	return tween(target, duration)
 		.to(to)
 		.easing(easing)
 		.start();
@@ -58,7 +69,7 @@ export function timeline(options?: { delay?: number }): Timeline {
 }
 
 export const delay = async (seconds: number) => {
-	return new Tween({}, seconds).start();
+	return tween().duration(seconds).start();
 };
 
 export function smoothScroll(

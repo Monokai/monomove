@@ -8,7 +8,8 @@ import {
 	CubicBezier,
 	RenderLoop,
 	delay,
-	SmoothScroller
+	SmoothScroller,
+	tween
 } from '../src/index';
 
 describe('Monomove Test Suite', () => {
@@ -168,6 +169,41 @@ describe('Monomove Test Suite', () => {
 		});
 	});
 
+	describe('Tween Helper & Scalar API', () => {
+		it('should create tweens via helper', () => {
+			const obj = { x: 0 };
+			tween(obj, 1).to({ x: 100 }).startTween(currentTime);
+			tick(0);
+			tick(1000);
+			expect(obj.x).toBe(100);
+		});
+
+		it('should support scalar targets with number .to()', () => {
+			const spy = vi.fn();
+			// tween(callback).to(100) -> implies animating from 0 to 100
+			tween(spy, 1).to(100).startTween(currentTime);
+			
+			tick(0);
+			tick(500);
+			// 50% of 100 is 50
+			expect(spy).toHaveBeenCalledWith(50, 0.5, 500);
+		});
+
+		it('should support scalar targets with number .from()', () => {
+			const spy = vi.fn();
+			// tween(callback).from(50).to(100)
+			tween(spy, 1).from(50).to(100).startTween(currentTime);
+			
+			tick(0);
+			// Should start at 50
+			expect(spy).toHaveBeenLastCalledWith(50, 0, 0);
+			
+			tick(500);
+			// 50 + (50 * 0.5) = 75
+			expect(spy).toHaveBeenLastCalledWith(75, 0.5, 500);
+		});
+	});
+
 	describe('Tween Lifecycle', () => {
 		it('should fire callbacks in correct order', () => {
 			const onStart = vi.fn();
@@ -198,7 +234,7 @@ describe('Monomove Test Suite', () => {
 			const tween = new Tween(target, 1)
 				.to({ x: 10 })
 				.loop(2)
-				.setLoopCallback(onLoop)
+				.onLoop(onLoop)
 				.startTween(currentTime);
 
 			tick(0);
@@ -244,11 +280,11 @@ describe('Monomove Test Suite', () => {
 
 			expect(tl.totalTime).toBe(2000);
 
-			tl.setPosition(0.25);
+			tl.setProgress(0.25);
 			expect(t1.progress).toBe(0.5);
 			expect(t2.progress).toBe(0);
 
-			tl.setPosition(0.75);
+			tl.setProgress(0.75);
 			expect(t1.progress).toBe(1);
 			expect(t2.progress).toBe(0.5);
 		});
@@ -260,9 +296,15 @@ describe('Monomove Test Suite', () => {
 
 			expect(tl.totalTime).toBe(1500);
 
-			tl.setPosition(0.5);
-			expect(t1.progress).toBe(0.75);
-			expect(t2.progress).toBe(0.25);
+			tl.setProgress(0.5 / 1.5);
+			// 0.5s -> t1 @ 0.5s (0.5), t2 @ 0.0s (0)
+			expect(t1.progress).toBe(0.5);
+			expect(t2.progress).toBe(0);
+
+			tl.setProgress(1.0 / 1.5);
+			// 1.0s -> t1 @ 1.0s (1), t2 @ 0.5s (0.5)
+			expect(t1.progress).toBe(1);
+			expect(t2.progress).toBe(0.5);
 		});
 
 		it('should handle absolute positioning (.at)', () => {
@@ -271,10 +313,10 @@ describe('Monomove Test Suite', () => {
 
 			expect(tl.totalTime).toBe(3000);
 
-			tl.setPosition(0.5);
+			tl.setProgress(0.5); // 1.5s
 			expect(t1.progress).toBe(0);
 
-			tl.setPosition(2.5 / 3);
+			tl.setProgress(2.5 / 3); // 2.5s
 			expect(t1.progress).toBe(0.5);
 		});
 
@@ -303,15 +345,15 @@ describe('Monomove Test Suite', () => {
 			t1.onTimelineVisible(onVisible).onTimelineInvisible(onInvisible);
 			const tl = new Timeline().at(1, t1);
 
-			tl.setPosition(0);
+			tl.setProgress(0);
 			vi.clearAllMocks();
 
-			tl.setPosition(0.5);
+			tl.setProgress(0.5); // 0.5 * 2s = 1s (start of tween)
 			expect(onVisible).toHaveBeenCalled();
 			expect(onInvisible).not.toHaveBeenCalled();
 			vi.clearAllMocks();
 
-			tl.setPosition(0.2);
+			tl.setProgress(0.2); // 0.2 * 2s = 0.4s (before tween)
 			expect(onVisible).not.toHaveBeenCalled();
 			expect(onInvisible).toHaveBeenCalled();
 		});
@@ -324,11 +366,45 @@ describe('Monomove Test Suite', () => {
 			t1.onTimelineIn(onIn).onTimelineOut(onOut);
 			const tl = new Timeline().add(t1);
 
-			tl.setPosition(0.5);
+			tl.setProgress(0.5);
 			expect(onIn).toHaveBeenCalled();
 
-			tl.setPosition(1);
+			tl.setProgress(1);
 			expect(onOut).toHaveBeenCalled();
+		});
+
+		it('should maintain consistency when scrubbing back and forth with overlapping tweens', () => {
+			const obj = { x: 0 };
+			// t1: 0s -> 1s (0 -> 10)
+			const t1 = new Tween(obj, 1).to({ x: 10 });
+			// t2: 0.5s -> 1.5s (starts at x=?, goes to 20).
+			// If playing linearly: starts at 0.5s (x=5). Animates 5 -> 20.
+			const t2 = new Tween(obj, 1).to({ x: 20 });
+
+			const tl = new Timeline().add(t1).add(t2, -0.5);
+			const total = 1.5;
+
+			// 1. Prime the cache by visiting the start of t2
+			tl.setProgress(0.5 / total);
+			expect(obj.x).toBe(5);
+
+			// 2. Scrub to 0.75s (Mid overlap)
+			// t1 is at 0.75s (0.75 progress) -> 7.5
+			// t2 is at 0.25s (0.25 progress). Start=5. Delta=15. 5 + 3.75 = 8.75.
+			tl.setProgress(0.75 / total);
+			expect(obj.x).toBe(8.75);
+
+			// 3. Scrub Forward to 1.25s
+			// t1 is done -> 10.
+			// t2 is at 0.75s (0.75 progress). 5 + 11.25 = 16.25.
+			tl.setProgress(1.25 / total);
+			expect(obj.x).toBe(16.25);
+
+			// 4. Scrub Backward to 0.25s
+			// t2 is future. Resets to start (5).
+			// t1 is active (0.25). Sets to 2.5.
+			tl.setProgress(0.25 / total);
+			expect(obj.x).toBe(2.5);
 		});
 	});
 

@@ -35,7 +35,7 @@ interface ITween {
     durationMS: number;
     totalTime?: number;
     delay(amount: number): ITween;
-    setPosition(position: number): void;
+    setProgress(progress: number, force?: boolean): void;
     invalidate(): void;
     updateAllValues(delta?: number): void;
     progress: number;
@@ -121,17 +121,18 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     private _previousUpdateValue;
     private _inverseDuration;
     private _targetIsFunction;
-    private _isInitialized;
+    private _startValuesCalculated;
+    constructor();
     constructor(object: T, duration?: number);
     constructor(callback: ScalarUpdateCallback, duration?: number);
-    from(properties: Partial<T>): this;
-    to(properties: Partial<T>, duration?: number): this;
+    from(properties: Partial<T> | number): this;
+    to(properties: Partial<T> | number, duration?: number): this;
     duration(duration: number): this;
     rewind(): this;
     restart(): Promise<this>;
     loop(num?: number): this;
-    setLoopCallback(callback: LoopCallback<T>): this;
-    private _init;
+    onLoop(callback: LoopCallback<T>): this;
+    private _calculateStartValues;
     startTween(time?: number): this;
     start(time?: number): Promise<this>;
     stop(): this;
@@ -144,7 +145,7 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     onTimelineOut(callback: TimelineCallback<T>): this;
     onTimelineVisible(callback: TimelineCallback<T>): this;
     onTimelineInvisible(callback: TimelineCallback<T>): this;
-    setPosition(position: number): void;
+    setProgress(progress: number, force?: boolean): void;
     updateAllValues(delta?: number): void;
     invalidate(): this;
     update(time: number): boolean;
@@ -152,34 +153,38 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
 
 interface TimelineOptions {
     delay?: number;
+    onComplete?: () => void;
+    onLoop?: () => void;
 }
 declare class Timeline {
-    previousPosition: number;
-    startTime: number | null;
-    delayTime: number;
-    durationMS: number;
-    progress: number;
-    easingFunction: (t: number) => number;
+    time: number;
     totalTime: number;
-    protected _driverTween: Tween | null;
-    protected _tweens: ITween[];
-    protected _loopNum: number;
-    private _startTimes;
-    private _durations;
-    private _cursor;
-    constructor({ delay }?: TimelineOptions);
-    protected static setTweenIn(tween: Tween, isIn: boolean): void;
-    protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
-    delay(amount: number): this;
-    loop(num?: number): this;
-    stop(): this;
-    destroy(): void;
+    isPlaying: boolean;
+    private _items;
+    private _delayTime;
+    private _loopCount;
+    private _onComplete;
+    private _onLoop;
+    private _isDirty;
+    private _driver;
+    private _easing;
+    private _timeScale;
+    constructor({ delay, onComplete, onLoop }?: TimelineOptions);
     add(tween: ITween, offset?: number): this;
-    at(time: number, tween: ITween): this;
+    at(seconds: number, tween: ITween): this;
     private _register;
+    delay(seconds: number): this;
+    loop(count?: number): this;
+    easing(easing: EasingType): this;
+    timeScale(scale: number): this;
     start(): Promise<this>;
-    setPosition(position: number): void;
-    update(): boolean;
+    pause(): this;
+    stop(): this;
+    setPosition(position: number, force?: boolean): void;
+    setProgress(progress: number): void;
+    private _sort;
+    private _updateChildren;
+    protected static setTweenVisibility(tween: Tween, isVisible: boolean): void;
 }
 
 declare class SmoothScroller {
@@ -352,12 +357,15 @@ declare class RenderLoop {
  * SOFTWARE.
  */
 
+declare function tween(): Tween<TweenableObject>;
+declare function tween<T extends TweenableObject>(target: T, duration?: number): Tween<T>;
+declare function tween(target: ScalarUpdateCallback, duration?: number): Tween<TweenableObject>;
 declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<Tween<T>>;
 declare function timeline(options?: {
     delay?: number;
 }): Timeline;
-declare const delay: (seconds: number) => Promise<Tween<{}>>;
+declare const delay: (seconds: number) => Promise<Tween<TweenableObject>>;
 declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
 
-export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenManager, animate, delay, smoothScroll, timeline };
+export { CubicBezier, RenderLoop, SmoothScroller, Timeline, Tween, TweenManager, animate, delay, smoothScroll, timeline, tween };
 export type { BezierLike, CompleteCallback, DOMRectLike, EasingFunction, EasingOptions, EasingType, ITween, LoopCallback, ObjectOrValue, ObjectUpdateCallback, ScalarUpdateCallback, ScrollItemOptions, SmoothScrollCallback, SmoothScrollCallbackData, SmoothScrollOptions, StartCallback, TimelineCallback, TweenableObject, UpdateCallback };

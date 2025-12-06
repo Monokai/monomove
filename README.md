@@ -132,7 +132,7 @@ const timeline = new Timeline([
 	}, 1).delay(0.5)
 ])
 
-timeline.setPosition(0.5);
+timeline.setProgress(0.5);
 ```
 
 
@@ -157,7 +157,7 @@ const tweenChain = new TweenChain([
 	}, 1).delay(0.5)
 ])
 
-tweenChain.setPosition(0.5);
+tweenChain.setProgress(0.5);
 ```
 
 

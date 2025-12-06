@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monomove - Timeline Scrubbing</title>
+    <style>
+        body { font-family: sans-serif; background: #111; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #box { width: 100px; height: 100px; background: #ff0055; border-radius: 8px; position: relative; }
+        
+        .controls { 
+            margin-top: 40px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 15px; 
+            width: 300px;
+        }
+
+        button { padding: 10px 20px; cursor: pointer; background: #333; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #444; }
+
+        .scrub-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+            color: #888;
+            min-width: 80px;
+            text-align: right;
+        }
+    </style>
+    <!-- Assuming the built file is here -->
+    <script src="../dist/index.umd.js"></script>
+</head>
+<body>
+
+    <div id="box"></div>
+    
+    <div class="controls">
+        <div class="scrub-container">
+            <input type="range" id="scrubber" min="0" max="1000" value="0" step="1">
+            <div class="time-display" id="time-display">0.00s</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-toggle">Pause</button>
+            <button id="btn-restart">Restart</button>
+        </div>
+    </div>
+
+    <script>
+        const { timeline, Tween, RenderLoop } = window.monomove;
+
+        const boxEl = document.getElementById('box');
+        const scrubber = document.getElementById('scrubber');
+        const timeDisplay = document.getElementById('time-display');
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnRestart = document.getElementById('btn-restart');
+        
+        // Initial State
+        const initialState = { x: 0, y: 0, rotate: 0, scale: 1, r: 255, g: 0, b: 85 };
+        const state = { ...initialState };
+
+        // 1. Render Loop: Apply state to DOM & Update UI
+        RenderLoop.add(() => {
+            // Apply visual styles
+            boxEl.style.transform = `
+                translate(${state.x}px, ${state.y}px) 
+                rotate(${state.rotate}deg) 
+                scale(${state.scale})
+            `;
+            boxEl.style.backgroundColor = `rgb(${state.r}, ${state.g}, ${state.b})`;
+
+            // Sync Slider with Timeline (only if playing)
+            if (tl.isPlaying) {
+                const progress = tl.time / tl.totalTime;
+                scrubber.value = progress * 1000;
+                timeDisplay.textContent = (tl.time / 1000).toFixed(2) + 's';
+            }
+        });
+
+        // 2. Create Timeline
+        const tl = timeline({ delay: 0.2 });
+
+        function init() {
+            const moveRight = new Tween(state, 1).to({ x: 200 }).easing('easeInOutQuart');
+            const moveDown = new Tween(state, 0.8).to({ y: 100 }).easing('easeInOutBack');
+            const rotate = new Tween(state, 1.5).to({ rotate: 180, scale: 1.5 }).easing('linear');
+            const colorChange = new Tween(state, 0.5).to({ r: 0, g: 255, b: 255 });
+            const shrink = new Tween(state, 0.5).to({ scale: 1, x: 0, y: 0, rotate: 360 });
+
+            tl.add(moveRight)
+              .add(moveDown)
+              .add(rotate, -0.5)
+              .add(colorChange)
+              .add(shrink)
+              .loop() // Loop indefinitely
+              .start();
+        }
+
+        init();
+
+        // 3. User Interaction Logic
+        
+        // Scrubber (Seek)
+        scrubber.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            const progress = val / 1000;
+            
+            // When scrubbing, we usually want to pause playback
+            tl.pause();
+            btnToggle.textContent = "Play";
+
+            // Set Position (normalized 0-1, force=true is handled internally now)
+            tl.setProgress(progress);
+            
+            // Update Text
+            timeDisplay.textContent = (tl.time / 1000).toFixed(2) + 's';
+        });
+
+        // Toggle Play/Pause
+        btnToggle.onclick = () => {
+            if (tl.isPlaying) {
+                tl.pause();
+                btnToggle.textContent = "Play";
+            } else {
+                tl.start(); // Resume
+                btnToggle.textContent = "Pause";
+            }
+        };
+
+        // Restart
+        btnRestart.onclick = () => {
+            tl.stop();
+            // Reset state object manually to be safe, though timeline handles most logic
+            Object.assign(state, initialState); 
+            tl.start();
+            btnToggle.textContent = "Pause";
+        };
+
+    </script>
+</body>
+</html>

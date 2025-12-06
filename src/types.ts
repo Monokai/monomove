@@ -42,7 +42,7 @@ export interface ITween {
 	durationMS: number;
 	totalTime?: number;
 	delay(amount: number): ITween;
-	setPosition(position: number): void;
+	setProgress(progress: number, force?: boolean): void;
 	invalidate(): void;
 	updateAllValues(delta?: number): void;
 	progress: number;
