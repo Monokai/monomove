@@ -1,284 +1,199 @@
 # Monomove
-## Utilities for moving things
 
-The aim of Monomove is to be a minimal toolkit for adding interaction and movement to web apps. It consists of a couple of components:
+A minimal, high-performance, strictly typed animation and smooth scrolling library for the modern web.
 
-- `Tween` (animation tweening)
-- `TweenManager` (manages the tweens)
-- `delay` (simple utility)
-- `Timeline` (a timeline of parallel tweens)
-- `TweenChain` (a chain of consecutive tweens)
-- `RenderLoop` (manages rendering via `requestAnimationFrame`)
-- `SmoothScroller` (listen to DOM element scroll positions via `IntersectionObserver`)
+---
 
-### Install
+## Installation
 
-```sh
-npm install --save @monokai/monomove
+```bash
+npm install @monokai/monomove
 ```
 
-### Usage
+## Quick Start
 
-#### ESM
+### Object Animation
+Tween properties of an object.
 
-The recommended way to use Monomove is via esm style modules. This way of importing supports tree-shaking and keeps your packages small.
+```ts
+import { tween } from '@monokai/monomove';
 
-```js
-import { Tween } from '@monokai/monomove';
-```
+const box = { x: 0, opacity: 0 };
 
-#### CommonJS
-
-You can also use commonjs style modules (`const {Tween} = require('monomove')`) but then you'll lose the tree shaking part.
-
-```js
-const {Tween} = require('@monokai/monomove');
-```
-
-#### UMD
-
-You can directly link to Monomove via a script tag or `require` the umd version and it will globally create a `monomove` object from which you can use the modules.
-
-```js
-require('@monokai/monomove/umd');
-
-const {SmoothScroller} = window.monomove;
-```
-
-#### From source
-
-Alternatively, you can directly import from the source files in your project. The source files are not transpiled and potentially use some JavaScript syntax that's not cross-browser compatible.
-
-```js
-import { Tween } from 'monomove/source';
-```
-
-## Tween
-
-A minimal animation tweening utility.
-
-### Importing it:
-
-```js
-import { Tween } from '@monokai/monomove';
-```
-
-### Using it
-
-Simple animation, tweening the opacity:
-
-```js
-const element = document.getElementById('my-id');
-const duration = 0.2; // seconds
-
-await new Tween(value => {
-	element.style.opacity = value;
-}, duration)
-	.start();
-```
-
-Tweening position with easing:
-
-```js
-await new Tween(value => {
-	element.style.left = `${value * 100}px`;
-}, duration)
-	.easing('0.25, 0.25, 0, 1') // css style easing
-	.start();
-```
-
-Alternative invocation with any object:
-
-```js
-await new Tween({
-	x: 0,
-	y: 0
-}, duration)
-	.to({
-		x: 100,
-		y: 200
-	})
-	.onUpdate(({x, y}) => {
-		element.style.transform = `translate3d(${x * 100}px, ${y * 100}px, 0)`;
+tween(box)
+	.to({ x: 100, opacity: 1 }, 1.5)
+	.easing('easeOutExpo') 
+	.onUpdate((target) => {
+		element.style.transform = `translateX(${target.x}px)`;
+		element.style.opacity = target.opacity.toString();
 	})
 	.start();
 ```
 
+### Scalar Animation
+Tween a single value from 0 to 1 (or custom range).
 
+```ts
+import { tween } from '@monokai/monomove';
 
-## Timeline
-
-Adding tweens together and create a single timeline
-
-### Importing it:
-
-```js
-import { Timeline } from '@monokai/monomove';
+tween(val => {
+	element.style.opacity = val.toString();
+}, 0.5)
+	.from(0)
+	.to(1)
+	.start();
 ```
 
-### Using it
+### Easing Presets
+To keep the core library small, easing presets are not included by default.
 
-A timeline is a collection of tweens playing in parallel that you can control with a normalized position (between 0 and 1, inclusive).
+Option A: The "Magic" Import (Easiest)
+Import the presets side-effect file once in your app. This registers all standard CSS easings (easeIn, easeOutExpo, etc.) globally.
 
-Create a timeline of two tweens and jump to 50% of the timeline:
+```ts
+import '@monokai/monomove/easings';
+import { tween } from '@monokai/monomove';
 
-```js
-const timeline = new Timeline([
-	new Tween(value => {
-		element.style.opacity = value * 0.5;
-	}, 2),
-	new Tween(value => {
-		element.style.left = `${value * 100}px`;
-	}, 1).delay(0.5)
-])
-
-timeline.setProgress(0.5);
+tween(obj).to({ x: 100 }).easing('easeOutBack').start();
 ```
 
+Option B: Tree-Shakable (Smallest Bundle)
+Import only the specific curves you need to save bytes.
 
+```ts
+import { tween, TweenManager } from '@monokai/monomove';
+import { BezierPresets } from '@monokai/monomove/easings';
 
-```js
-import { TweenChain } from '@monokai/monomove';
+TweenManager.register('bounce', BezierPresets.easeOutBack);
+
+tween(obj).easing('bounce').start();
 ```
 
-### Using it
+### API Reference
 
-A tween chain is a collection of tweens that play after each other. You can control the chain by setting a normalized position (between 0 and 1, inclusive).
-
-Create a chain of two tweens and jump to 50% of the timeline:
-
-```js
-const tweenChain = new TweenChain([
-	new Tween(value => {
-		element.style.opacity = value * 0.5;
-	}, 2),
-	new Tween(value => {
-		element.style.left = `${value * 100}px`;
-	}, 1).delay(0.5)
-])
-
-tweenChain.setProgress(0.5);
+```ts
+tween(target, duration?)
 ```
 
+The main factory function. Returns strictly typed IScalarTween or IObjectTween.
 
+Methods:
 
-## TweenManager
+|	Method	|	Arguments	|	Description	|
+| :--- | :--- | :--- |
+|	.to(props, duration?)	|	Partial<T> | number, number	|	Define end values and optionally update duration.	|
+|	.from(props)	|	Partial<T> | number	|	Define start values (defaults to current values).	|
+|	.duration(seconds)	|	number	|	Set duration in seconds.	|
+|	.delay(seconds)	|	number	|	Wait before starting.	|
+|	.easing(type)	|	string | Array | Function	|	Set easing curve.	|
+|	.loop(count)	|	number	|	Loop the animation n times (Infinity for endless).	|
+|	.onUpdate(cb)	|	(obj, progress, delta) => void	|	Called every frame.	|
+|	.onComplete(cb)	|	(obj) => void	|	Called when animation finishes.	|
+|	.onStart(cb)	|	(obj) => void	|	Called when animation begins (after delay).	|
+|	.start()	|	-	|	Starts the tween. Returns a Promise.	|
+|	.stop()	|	-	|	Stops the tween immediately.	|
 
-### Importing it:
-
-```js
-import { TweenManager } from '@monokai/monomove';
+```ts
+timeline(options?)
 ```
 
-The tween manager takes care of running and cleaning up tween instances. Whenever you want to immediately delete tweens, you can use this class
+Sequence multiple tweens together.
 
-### Removing all tweens
+```ts
+import { timeline, tween } from '@monokai/monomove';
 
-```js
-TweenManager.removeAll();
+const tl = timeline({ delay: 0.5, onComplete: () => console.log('Done') });
+
+tl.add(tween(obj).to({ x: 100 }, 1))
+	.add(tween(obj).to({ y: 100 }, 1), -0.5) // Overlap by 0.5s
+	.start();
 ```
 
+|	Method	|	Description	|
+| :--- | :--- |
+|	.add(tween, offset?)	|	Add a tween. offset (seconds) shifts it relative to the previous tween's end.	|
+|	.at(time, tween)	|	Insert a tween at an absolute timestamp.	|
+|	.timeScale(scale)	|	Speed up (2), slow down (0.5), or reverse (-1) the timeline.	|
+|	.loop(count)	|	Loop the entire sequence.	|
+|	.setProgress(0-1)	|	Scrub the timeline manually.	|
 
+### SmoothScroller
 
-## RenderLoop
+A high-performance scroller that uses IntersectionObserver to trigger animations only when elements are in view. It does not hijack native scrolling (unless you build a custom smooth scroll container), making it accessibility-friendly.
 
-### Importing it:
-
-```js
-import { RenderLoop } from '@monokai/monomove';
-```
-
-The main responsibility of the render loop is to keep track of the time and triggering the tweens on each drawing frame of the browser. 
-
-### Hook up your own render function
-
-```js
-function onTick(ms) {
-	console.log(`elapsed milliseconds: ${ms}`);
-}
-
-RenderLoop.add(onTick);
-```
-
-### Remove it
-
-```js
-RenderLoop.remove(onTick);
-```
-
-
-## delay
-
-### Importing it:
-
-```js
-import { delay } from '@monokai/monomove';
-```
-
-A simple utility to wait a bit without relying on `setTimeout`;
-
-### Wait for 3 seconds
-
-```js
-await delay(3);
-```
-
-
-
-## SmoothScroller
-
-The Smooth Scroller lets you control DOM elements based on the scroll position in the browser
-
-### Importing it:
-
-```js
+```ts
 import { SmoothScroller } from '@monokai/monomove';
-```
 
-### Using it
+const scroller = new SmoothScroller({
+	scrollDuration: 0.5, // 0 = native
+	listener: window
+});
 
-```js
-const smoothScroller = new SmoothScroller({
-	scrollDuration: 1 // easing duration (default = 0)
+const elements = document.querySelectorAll('.card');
+
+scroller.add(Array.from(elements), (data) => {
+	const y = (1 - data.boxFactor) * 100; 
+
+	data.item.style.transform = `translateY(${y}px)`;
+
+	if (data.isInView) {
+		data.item.style.opacity = '1';
+	}
 });
 ```
 
-### Scroll browser page to position 100 in 3 seconds
+#### Callback Data Object
+The callback receives a rich data object for math-based animations:
 
-```js
-smoothScroller.scrollTo(100, 3);
+|	Property	|	Type	|	Description	|
+| :--- | :--- | :--- |
+|	item	|	HTMLElement	|	The DOM element.	|
+|	scroll	|	number	|	Current scroll Y position.	|
+|	factor	|	0 to 1	|	Viewport Progress: 0 = entering bottom, 1 = leaving top.	|
+|	boxFactor	|	0 to 1	|	Box Progress: 0 = top of item at bottom of screen, 1 = bottom of item at top of screen.	|
+|	isInView	|	boolean	|	Is the element currently visible?	|
+
+### Helper Utilities
+
+```ts
+animate(target, to, duration, easing)
 ```
 
-### Scroll browser page to element with 100px offset in 3 seconds
+A simple "fire-and-forget" wrapper.
 
-```js
-smoothScroller.scrollToElement(document.getElementById('my-element'), 100, 3);
+```ts
+import { animate } from '@monokai/monomove';
+
+await animate(element.style, { opacity: 0 }, 0.5, 'linear');
+
+element.remove();
 ```
 
-### Change opacity of multiple elements based on their individual position in the browser frame
+```ts
+delay(seconds)
+```
 
-```js
-smoothScroller.add([...document.getElementsByClassName('block')], ({
-	factor,
-	item
-}) => {
-	item.style.opacity = 1 - ((factor - 0.5) * 2) ** 4;
+Promise-based delay.
+
+```ts
+import { delay } from '@monokai/monomove';
+
+await delay(1);
+
+console.log('1 second passed');
+```
+
+### RenderLoop
+Hook into the library's single requestAnimationFrame loop.
+
+```ts
+import { RenderLoop } from '@monokai/monomove';
+
+const stop = RenderLoop.add((deltaMS) => {
+	// Custom logic running every frame
+	return true; // return false to remove automatically
 });
 ```
 
-The callback offers a couple of variables:
-
-- `item`: the DOM element
-- `box`: the position and dimensions of the item
-- `rawFactor`: value indicating normalized scroll position: measures from the top of the item at the bottom of the browser page to the bottom of the item at the **top** of the browser page
-- `rawBoxFactor`: value indicating normalized box scroll position: measures from the top of the item at the bottom of the browser page to the bottom of the item at the **bottom** of the browser page
-- `factor`: `rawFactor` clamped to [0, 1]
-- `boxFactor`: `rawBoxFactor` clamped to [0, 1] 
-- `isInView`: boolean indicating if item is in view
-- `boxIsInView`: boolean indicating if the box of the item is in view
-
-### Destroying it
-
-```js
-smoothScroller.destroy();
-```
+License
+MIT © Monokai

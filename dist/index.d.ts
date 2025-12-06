@@ -28,7 +28,6 @@ interface EasingOptions {
 interface ITween {
     start(time?: number): Promise<any>;
     stop(): any;
-    pause(): any;
     update(time: number): boolean;
     invalidate(): void;
     delay(amount: number): any;
@@ -50,7 +49,6 @@ interface ITween {
 interface ITweenBase<Self> {
     start(time?: number): Promise<Self>;
     stop(): Self;
-    pause(): Self;
     delay(amount: number): Self;
     duration(seconds: number): Self;
     easing(easing: EasingType, options?: EasingOptions): Self;
@@ -105,7 +103,6 @@ interface SmoothScrollCallbackData {
     isInView: boolean;
     boxIsInView: boolean;
     index: number;
-    centerOffset: number;
     originalTop: number;
     isVisible: boolean;
     data?: unknown;
@@ -192,7 +189,6 @@ declare class Tween<T extends TweenableObject = TweenableObject> implements ITwe
     start(time?: number): Promise<this>;
     startTween(time?: number): this;
     stop(): this;
-    pause(): this;
     private _calculateStartValues;
     updateAllValues(delta?: number): void;
     setProgress(progress: number, force?: boolean): void;
@@ -233,7 +229,6 @@ declare class Timeline {
     setProgress(progress: number): void;
     private _sort;
     private _updateChildren;
-    protected static setTweenVisibility(tween: ITween, isVisible: boolean): void;
 }
 
 declare class SmoothScroller {
@@ -289,7 +284,7 @@ declare class SmoothScroller {
     add(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions): void;
     private _refreshActiveSets;
     remove(_items: HTMLElement | HTMLElement[]): void;
-    static getBox(node: HTMLElement): DOMRectLike;
+    getBox(node: HTMLElement): DOMRectLike;
     scrollTo(position?: number, time?: number | null): Promise<Tween<{
         y: number;
     }>>;
@@ -321,8 +316,6 @@ declare class CubicBezier implements BezierLike {
     private _x2;
     private _y2;
     private _isPreComputed;
-    private static _calculate;
-    private static _getSlope;
     constructor(x1: number | string, y1?: number, x2?: number, y2?: number);
     private _binarySubdivide;
     private _newtonRaphson;
@@ -333,61 +326,70 @@ declare class CubicBezier implements BezierLike {
     get cacheSize(): number;
 }
 
-declare class TweenManager {
-    private static _tweens;
-    private static _easingCache;
-    private static _isUpdating;
-    static bezierIterations: number | null;
-    static bezierCacheSize: number | null;
-    static bezierPrecision: number | null;
-    static bezierNewtonRaphsonMinSlope: number | null;
-    static bezierSubdivisionPrecision: number | null;
-    static bezierSubdivisionIterations: number | null;
-    static getAll(): ITween[];
-    static removeAll(): void;
-    static add(tween: ITween): void;
-    static remove(tween: ITween): void;
-    static onTick(time: number): boolean;
-    static getEasingFromCache(key: string): CubicBezier;
-    static setEasingOptions(bezier: CubicBezier | BezierLike, easingOptions?: EasingOptions): void;
-}
+declare const TweenManager: {
+    bezierIterations: number | null;
+    bezierCacheSize: number | null;
+    bezierPrecision: number | null;
+    bezierNewtonRaphsonMinSlope: number | null;
+    bezierSubdivisionPrecision: number | null;
+    bezierSubdivisionIterations: number | null;
+    getAll: () => ITween[];
+    removeAll: () => void;
+    add: (tween: ITween) => void;
+    remove: (tween: ITween) => void;
+    register: (name: string, values: [number, number, number, number]) => void;
+    registerAll: (presets: Record<string, number[]>) => void;
+    onTick: (time: number) => boolean;
+    getEasingFromCache: (key: string) => CubicBezier;
+    setEasingOptions: (bezier: CubicBezier | BezierLike, easingOptions?: EasingOptions) => void;
+};
 
 type RenderCallback = (ms: number) => boolean | void;
-declare class RenderLoop {
-    private static _subscribers;
-    private static _isUpdating;
-    private static _activeCount;
-    private static _ms;
-    private static _time;
-    private static _previousTime;
-    private static _pauseTime;
-    private static _pauseTimeStart;
-    private static _isAnimating;
-    private static _requestAnimation;
-    private static _requestID;
-    private static _isFirstTime;
-    private static _loopHandler;
-    private static _animate;
-    private static _compact;
-    static stop(callback?: () => void): void;
-    static add(callback: RenderCallback): void;
-    static reset(): void;
-    static remove(callback: RenderCallback): void;
-    static trigger(): void;
-    static getTime(): number;
-    static pause(): void;
-    static play(): void;
-    static triggerAnimation(): void;
-    static isPlaying(): boolean;
-}
+declare const RenderLoop: {
+    stop: (callback?: () => void) => void;
+    add: (callback: RenderCallback) => void;
+    reset: () => void;
+    remove: (callback: RenderCallback) => void;
+    trigger: () => void;
+    getTime: () => number;
+    pause: () => void;
+    play: () => void;
+    triggerAnimation: () => void;
+    isPlaying: () => boolean;
+};
 
+/**
+ * @license
+ * Monomove - utilities for moving things
+ *
+ * Copyright © 2021-2025 Monokai (monokai.com)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the “Software”), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+declare function tween(): IScalarTween;
 declare function tween(target: ScalarUpdateCallback, duration?: number): IScalarTween;
 declare function tween<T extends TweenableObject>(target: T, duration?: number): IObjectTween<T>;
-declare function tween(): IScalarTween;
-declare function animate<T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType): Promise<IObjectTween<T>>;
-declare function timeline(options?: {
+declare const animate: <T extends TweenableObject>(target: T, to: Partial<T>, duration?: number, easing?: EasingType) => Promise<IObjectTween<T>>;
+declare const timeline: (options?: {
     delay?: number;
-}): Timeline;
+}) => Timeline;
 declare const delay: (seconds: number) => Promise<IScalarTween>;
 declare function smoothScroll(items: HTMLElement | HTMLElement[], callback: SmoothScrollCallback, options?: ScrollItemOptions, scrollerOptions?: SmoothScrollOptions): SmoothScroller;
 

@@ -2,204 +2,200 @@ import { TweenManager } from './TweenManager.js';
 
 type RenderCallback = (ms: number) => boolean | void;
 
-const isBrowser = typeof window !== 'undefined';
+const W = window;
+const isBrowser = typeof W !== 'undefined';
+const subscribers: (RenderCallback | null)[] = [];
 
-export class RenderLoop {
-	private static _subscribers: (RenderCallback | null)[] = [];
-	private static _isUpdating = false;
-	private static _activeCount = 0;
-	private static _ms = 0;
-	private static _time = 0;
-	private static _previousTime = 0;
-	private static _pauseTime = 0;
-	private static _pauseTimeStart = 0;
-	private static _isAnimating = false;
-	private static _requestAnimation = false;
-	private static _requestID = 0;
-	private static _isFirstTime = true;
-	private static _loopHandler = RenderLoop._animate.bind(RenderLoop);
+let isUpdating = false;
+let activeCount = 0;
+let ms = 0;
+let time = 0;
+let previousTime = 0;
+let pauseTime = 0;
+let pauseTimeStart = 0;
+let isAnimating = false;
+let requestAnimation = false;
+let requestID = 0;
+let isFirstTime = true;
 
-	private static _animate() {
-		if (!isBrowser) {
-			return;
-		}
+const compact = () => {
+	let writePtr = 0;
+	const len = subscribers.length;
 
-		const now = window.performance.now();
+	for (let i = 0; i < len; i++) {
+		const sub = subscribers[i];
 
-		this._time = now - this._pauseTime;
-
-		if (this._isFirstTime) {
-			this._ms = 0;
-			this._isFirstTime = false;
-		} else {
-			this._ms = this._time - this._previousTime;
-		}
-
-		if (this._ms < 0) {
-			this._ms = 0;
-		}
-
-		const hasTweens = TweenManager.onTick(this._time);
-		const len = this._subscribers.length;
-		const subs = this._subscribers;
-
-		let dirtyCount = 0;
-
-		this._isUpdating = true;
-
-		for (let i = 0; i < len; i++) {
-			const sub = subs[i];
-
-			if (sub !== null) {
-				if (sub(this._ms) !== false) {
-					dirtyCount++;
-				}
+		if (sub !== null) {
+			if (i !== writePtr) {
+				subscribers[writePtr] = sub;
 			}
-		}
-
-		this._isUpdating = false;
-
-		if (this._activeCount < subs.length) {
-			this._compact();
-		}
-
-		this._previousTime = this._time;
-
-		// Keep loop running if active or if we have tweens
-		if (this._isAnimating && (dirtyCount > 0 || hasTweens)) {
-			this._requestID = window.requestAnimationFrame(this._loopHandler);
-			this._requestAnimation = true;
-		} else {
-			this._requestAnimation = false;
+			writePtr++;
 		}
 	}
 
-	private static _compact() {
-		let writePtr = 0;
+	subscribers.length = writePtr;
+	activeCount = writePtr;
+};
 
-		const len = this._subscribers.length;
-		const subs = this._subscribers;
-
-		for (let i = 0; i < len; i++) {
-			const sub = subs[i];
-
-			if (sub !== null) {
-				if (i !== writePtr) {
-					subs[writePtr] = sub;
-				}
-				writePtr++;
-			}
-		}
-
-		subs.length = writePtr;
-
-		this._activeCount = writePtr;
+const animate = () => {
+	if (!isBrowser) {
+		return;
 	}
 
-	public static stop(callback?: () => void) {
-		this._isAnimating = false;
+	const now = W.performance.now();
+
+	time = now - pauseTime;
+
+	if (isFirstTime) {
+		ms = 0;
+		isFirstTime = false;
+	} else {
+		ms = time - previousTime;
+	}
+
+	if (ms < 0) {
+		ms = 0;
+	}
+
+	// We access TweenManager directly as an object now
+	const hasTweens = TweenManager.onTick(time);
+	const len = subscribers.length;
+
+	let dirtyCount = 0;
+
+	isUpdating = true;
+
+	for (let i = 0; i < len; i++) {
+		const sub = subscribers[i];
+
+		if (sub !== null) {
+			if (sub(ms) !== false) {
+				dirtyCount++;
+			}
+		}
+	}
+
+	isUpdating = false;
+
+	if (activeCount < subscribers.length) {
+		compact();
+	}
+
+	previousTime = time;
+
+	// Keep loop running if active or if we have tweens
+	if (isAnimating && (dirtyCount > 0 || hasTweens)) {
+		requestID = W.requestAnimationFrame(animate);
+		requestAnimation = true;
+	} else {
+		requestAnimation = false;
+	}
+};
+
+export const RenderLoop = {
+	stop: (callback?: () => void) => {
+		isAnimating = false;
 
 		if (isBrowser) {
-			window.cancelAnimationFrame(this._requestID);
+			W.cancelAnimationFrame(requestID);
 		}
 
-		this._requestAnimation = false;
+		requestAnimation = false;
 
 		if (callback) {
 			callback();
 		}
-	}
+	},
 
-	public static add(callback: RenderCallback) {
-		this._subscribers.push(callback);
-		this._activeCount++;
+	add: (callback: RenderCallback) => {
+		subscribers.push(callback);
+		activeCount++;
 
-		this.trigger();
-	}
+		RenderLoop.trigger();
+	},
 
-	public static reset() {
-		this._subscribers.length = 0;
-		this._activeCount = 0;
+	reset: () => {
+		subscribers.length = 0;
+		activeCount = 0;
 
 		TweenManager.removeAll();
+		RenderLoop.stop();
 
-		this.stop();
+		ms = 0;
+		time = 0;
+		previousTime = 0;
+		pauseTime = 0;
+		pauseTimeStart = 0;
+		isAnimating = false;
+		requestAnimation = false;
+		requestID = 0;
+		isFirstTime = true;
+	},
 
-		this._ms = 0;
-		this._time = 0;
-		this._previousTime = 0;
-		this._pauseTime = 0;
-		this._pauseTimeStart = 0;
-		this._isAnimating = false;
-		this._requestAnimation = false;
-		this._requestID = 0;
-		this._isFirstTime = true;
-	}
-
-	public static remove(callback: RenderCallback) {
-		const index = this._subscribers.indexOf(callback);
+	remove: (callback: RenderCallback) => {
+		const index = subscribers.indexOf(callback);
 
 		if (index !== -1) {
-			if (this._isUpdating) {
-				this._subscribers[index] = null;
-				this._activeCount--;
+			if (isUpdating) {
+				subscribers[index] = null;
+				activeCount--;
 			} else {
-				this._subscribers.splice(index, 1);
-				this._activeCount--;
+				subscribers.splice(index, 1);
+				activeCount--;
 			}
 		}
 
-		this.trigger();
-	}
+		RenderLoop.trigger();
+	},
 
-	public static trigger() {
-		if (!isBrowser || this._requestAnimation) {
+	trigger: () => {
+		if (!isBrowser || requestAnimation) {
 			return;
 		}
 
 		// When waking up from idle, sync time to prevent huge deltas
-		if (!this._isFirstTime) {
-			this._previousTime = this.getTime();
+		if (!isFirstTime) {
+			previousTime = RenderLoop.getTime();
 		}
 
-		this._requestAnimation = true;
-		this._requestID = window.requestAnimationFrame(this._loopHandler);
-	}
+		requestAnimation = true;
+		requestID = W.requestAnimationFrame(animate);
+	},
 
-	public static getTime() {
-		return isBrowser ? window.performance.now() - this._pauseTime : 0;
-	}
+	getTime: () => {
+		return isBrowser ? W.performance.now() - pauseTime : 0;
+	},
 
-	public static pause() {
-		if (!this._isAnimating || !isBrowser) {
+	pause: () => {
+		if (!isAnimating || !isBrowser) {
 			return;
 		}
 
-		this._pauseTimeStart = window.performance.now();
-		this._requestAnimation = false;
-		this._isAnimating = false;
+		pauseTimeStart = W.performance.now();
+		requestAnimation = false;
+		isAnimating = false;
 
-		window.cancelAnimationFrame(this._requestID);
-	}
+		W.cancelAnimationFrame(requestID);
+	},
 
-	public static play() {
-		if (this._isAnimating || !isBrowser) {
+	play: () => {
+		if (isAnimating || !isBrowser) {
 			return;
 		}
 
-		if (!this._isFirstTime) {
-			this._pauseTime += window.performance.now() - this._pauseTimeStart;
+		if (!isFirstTime) {
+			pauseTime += W.performance.now() - pauseTimeStart;
 		}
 
-		this.triggerAnimation();
-	}
+		RenderLoop.triggerAnimation();
+	},
 
-	public static triggerAnimation() {
-		this._isAnimating = true;
-		this.trigger();
-	}
+	triggerAnimation: () => {
+		isAnimating = true;
+		RenderLoop.trigger();
+	},
 
-	public static isPlaying() {
-		return this._isAnimating;
+	isPlaying: () => {
+		return isAnimating;
 	}
-}
+};

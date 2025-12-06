@@ -6,6 +6,8 @@ import type {
 	SmoothScrollCallbackData
 } from '../types.js';
 
+const W = window;
+
 export class ScrollItem {
 	public readonly element: HTMLElement;
 	public readonly smoothing: number;
@@ -71,7 +73,6 @@ export class ScrollItem {
 			isInView: false,
 			boxIsInView: false,
 			index: index,
-			centerOffset: 0,
 			originalTop: 0,
 			isVisible: true,
 			data: options.data
@@ -92,16 +93,14 @@ export class ScrollItem {
 
 	public resize(scrollTop: number, viewportHeight: number) {
 		const rect = this.element.getBoundingClientRect();
-		const scrollLeft = window.scrollX || window.pageXOffset;
+		const scrollLeft = W.scrollX || W.pageXOffset;
 
 		this._box.left = rect.left + scrollLeft;
 		this._box.top = rect.top + scrollTop;
 		this._box.width = rect.width;
 		this._box.height = rect.height;
 
-		this._data.centerOffset = (viewportHeight - this._box.height) * 0.5;
 		this._data.originalTop = this._box.top;
-		this._data.scroll = this._data.smoothScrollValue;
 	}
 
 	public update(

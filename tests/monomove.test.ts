@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import {
 	Tween,
 	Timeline,
@@ -12,9 +13,10 @@ import {
 	tween
 } from '../src/index';
 
-describe('Monomove Test Suite', () => {
+import '../src/easings';
 
-	let rafCallbacks: { id: number, cb: FrameRequestCallback }[] = [];
+describe('Monomove Test Suite', () => {
+	let rafCallbacks: { id: number; cb: FrameRequestCallback }[] = [];
 	let currentTime = 1000;
 	let rafIdCounter = 0;
 
@@ -94,9 +96,7 @@ describe('Monomove Test Suite', () => {
 		it('should interpolate multiple properties simultaneously', () => {
 			const target = { x: 0, y: 100, z: 5 };
 
-			new Tween(target, 1)
-				.to({ x: 10, y: 200, z: 5 })
-				.startTween(currentTime);
+			new Tween(target, 1).to({ x: 10, y: 200, z: 5 }).startTween(currentTime);
 
 			tick(0);
 			tick(500);
@@ -108,9 +108,7 @@ describe('Monomove Test Suite', () => {
 
 		it('should merge properties in chained .to() calls', () => {
 			const target = { x: 0, y: 0 };
-			const tween = new Tween(target, 1)
-				.to({ x: 100 })
-				.to({ y: 100 });
+			const tween = new Tween(target, 1).to({ x: 100 }).to({ y: 100 });
 
 			tween.startTween(currentTime);
 
@@ -124,10 +122,7 @@ describe('Monomove Test Suite', () => {
 		it('should handle .from() overrides', () => {
 			const target = { x: 0 };
 
-			new Tween(target, 1)
-				.from({ x: 50 })
-				.to({ x: 100 })
-				.startTween(currentTime);
+			new Tween(target, 1).from({ x: 50 }).to({ x: 100 }).startTween(currentTime);
 
 			tick(0);
 			expect(target.x).toBe(50);
@@ -180,26 +175,20 @@ describe('Monomove Test Suite', () => {
 
 		it('should support scalar targets with number .to()', () => {
 			const spy = vi.fn();
-			// tween(callback).to(100) -> implies animating from 0 to 100
+
 			tween(spy, 1).to(100).startTween(currentTime);
-			
 			tick(0);
 			tick(500);
-			// 50% of 100 is 50
 			expect(spy).toHaveBeenCalledWith(50, 0.5, 500);
 		});
 
 		it('should support scalar targets with number .from()', () => {
 			const spy = vi.fn();
-			// tween(callback).from(50).to(100)
+
 			tween(spy, 1).from(50).to(100).startTween(currentTime);
-			
 			tick(0);
-			// Should start at 50
 			expect(spy).toHaveBeenLastCalledWith(50, 0, 0);
-			
 			tick(500);
-			// 50 + (50 * 0.5) = 75
 			expect(spy).toHaveBeenLastCalledWith(75, 0.5, 500);
 		});
 	});
@@ -297,12 +286,10 @@ describe('Monomove Test Suite', () => {
 			expect(tl.totalTime).toBe(1500);
 
 			tl.setProgress(0.5 / 1.5);
-			// 0.5s -> t1 @ 0.5s (0.5), t2 @ 0.0s (0)
 			expect(t1.progress).toBe(0.5);
 			expect(t2.progress).toBe(0);
 
 			tl.setProgress(1.0 / 1.5);
-			// 1.0s -> t1 @ 1.0s (1), t2 @ 0.5s (0.5)
 			expect(t1.progress).toBe(1);
 			expect(t2.progress).toBe(0.5);
 		});
@@ -313,15 +300,15 @@ describe('Monomove Test Suite', () => {
 
 			expect(tl.totalTime).toBe(3000);
 
-			tl.setProgress(0.5); // 1.5s
+			tl.setProgress(0.5);
 			expect(t1.progress).toBe(0);
 
-			tl.setProgress(2.5 / 3); // 2.5s
+			tl.setProgress(2.5 / 3);
 			expect(t1.progress).toBe(0.5);
 		});
 
 		it('should play via .start()', async () => {
-			const o = { x: 0 }
+			const o = { x: 0 };
 			const t1 = new Tween(o, 1).to({ x: 100 });
 			const tl = new Timeline().add(t1);
 
@@ -348,12 +335,12 @@ describe('Monomove Test Suite', () => {
 			tl.setProgress(0);
 			vi.clearAllMocks();
 
-			tl.setProgress(0.5); // 0.5 * 2s = 1s (start of tween)
+			tl.setProgress(0.5);
 			expect(onVisible).toHaveBeenCalled();
 			expect(onInvisible).not.toHaveBeenCalled();
 			vi.clearAllMocks();
 
-			tl.setProgress(0.2); // 0.2 * 2s = 0.4s (before tween)
+			tl.setProgress(0.2);
 			expect(onVisible).not.toHaveBeenCalled();
 			expect(onInvisible).toHaveBeenCalled();
 		});
@@ -375,34 +362,20 @@ describe('Monomove Test Suite', () => {
 
 		it('should maintain consistency when scrubbing back and forth with overlapping tweens', () => {
 			const obj = { x: 0 };
-			// t1: 0s -> 1s (0 -> 10)
 			const t1 = new Tween(obj, 1).to({ x: 10 });
-			// t2: 0.5s -> 1.5s (starts at x=?, goes to 20).
-			// If playing linearly: starts at 0.5s (x=5). Animates 5 -> 20.
 			const t2 = new Tween(obj, 1).to({ x: 20 });
-
 			const tl = new Timeline().add(t1).add(t2, -0.5);
 			const total = 1.5;
 
-			// 1. Prime the cache by visiting the start of t2
 			tl.setProgress(0.5 / total);
 			expect(obj.x).toBe(5);
 
-			// 2. Scrub to 0.75s (Mid overlap)
-			// t1 is at 0.75s (0.75 progress) -> 7.5
-			// t2 is at 0.25s (0.25 progress). Start=5. Delta=15. 5 + 3.75 = 8.75.
 			tl.setProgress(0.75 / total);
 			expect(obj.x).toBe(8.75);
 
-			// 3. Scrub Forward to 1.25s
-			// t1 is done -> 10.
-			// t2 is at 0.75s (0.75 progress). 5 + 11.25 = 16.25.
 			tl.setProgress(1.25 / total);
 			expect(obj.x).toBe(16.25);
 
-			// 4. Scrub Backward to 0.25s
-			// t2 is future. Resets to start (5).
-			// t1 is active (0.25). Sets to 2.5.
 			tl.setProgress(0.25 / total);
 			expect(obj.x).toBe(2.5);
 		});
@@ -444,19 +417,20 @@ describe('Monomove Test Suite', () => {
 		it('should create a delay promise', async () => {
 			const p = delay(0.1);
 			let done = false;
-			p.then(() => { done = true; });
+			p.then(() => {
+				done = true;
+			});
 
 			tick(0);
 			expect(done).toBe(false);
 
 			tick(150);
-			await new Promise(r => setTimeout(r, 0));
+			await new Promise((r) => setTimeout(r, 0));
 			expect(done).toBe(true);
 		});
 	});
 
 	describe('SmoothScroller', () => {
-
 		let scroller: SmoothScroller;
 		let element: HTMLElement;
 
@@ -465,10 +439,23 @@ describe('Monomove Test Suite', () => {
 		const ELEMENT_HEIGHT = 100;
 
 		beforeEach(() => {
-			Object.defineProperty(window, 'innerHeight', { value: VIEWPORT_HEIGHT, configurable: true });
-			Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
-			Object.defineProperty(document.body, 'scrollHeight', { value: 5000, configurable: true });
-			Object.defineProperty(document.body, 'scrollWidth', { value: 1000, configurable: true });
+			Object.defineProperty(window, 'innerHeight', {
+				value: VIEWPORT_HEIGHT,
+				configurable: true
+			});
+			Object.defineProperty(window, 'scrollY', {
+				value: 0,
+				writable: true,
+				configurable: true
+			});
+			Object.defineProperty(document.body, 'scrollHeight', {
+				value: 5000,
+				configurable: true
+			});
+			Object.defineProperty(document.body, 'scrollWidth', {
+				value: 1000,
+				configurable: true
+			});
 
 			const originalObserver = window.IntersectionObserver;
 			// @ts-ignore
@@ -543,9 +530,7 @@ describe('Monomove Test Suite', () => {
 			});
 
 			tick(16);
-			// expect(onIn).not.toHaveBeenCalled();
 
-			// 1. Scroll In
 			window.scrollY = 1500;
 			window.dispatchEvent(new Event('scroll'));
 
@@ -553,7 +538,6 @@ describe('Monomove Test Suite', () => {
 
 			expect(onIn).toHaveBeenCalledTimes(1);
 
-			// // 2. Scroll Out (Back to top)
 			window.scrollY = 0;
 			window.dispatchEvent(new Event('scroll'));
 
@@ -617,5 +601,4 @@ describe('Monomove Test Suite', () => {
 			expect(onOutOnce).toHaveBeenCalledTimes(1);
 		});
 	});
-
 });

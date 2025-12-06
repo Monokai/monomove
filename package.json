@@ -18,6 +18,11 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./easings": {
+      "types": "./dist/easings.d.ts",
+      "import": "./dist/easings.mjs",
+      "require": "./dist/easings.cjs"
+    },
     "./source": "./src/index.ts"
   },
   "files": [

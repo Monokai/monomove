@@ -10,9 +10,11 @@ import type {
 	EasingFunction
 } from '../types.js';
 
+const W = window;
+
 let passiveSupported = false;
 
-if (typeof window !== 'undefined') {
+if (typeof W !== 'undefined') {
 	try {
 		const options = Object.defineProperty({}, 'passive', {
 			get: () => {
@@ -20,8 +22,8 @@ if (typeof window !== 'undefined') {
 				return true;
 			}
 		}) as unknown as AddEventListenerOptions;
-		window.addEventListener('test', () => {}, options);
-		window.removeEventListener('test', () => {}, options);
+		W.addEventListener('test', () => {}, options);
+		W.removeEventListener('test', () => {}, options);
 	} catch {
 		// ignore
 	}
@@ -55,7 +57,8 @@ export class SmoothScroller {
 	private _scrollTween = new Tween<{ y: number }>({ y: 0 })
 		.easing('0.35,0.15,0,1')
 		.onUpdate((o: { y: number }) => {
-			window.scrollTo(0, o.y);
+			W.scrollTo(0, o.y);
+
 			this._isAnimating = true;
 			this.scroll = o.y;
 			this._targetScroll = o.y;
@@ -117,8 +120,8 @@ export class SmoothScroller {
 	};
 
 	constructor({
-		container = window.document.body,
-		content = window.document.body,
+		container = W.document.body,
+		content = W.document.body,
 		easing = (x) => Math.min(1, 1.001 - 2 ** (-10 * x)),
 		scrollDuration = 0,
 		listener = window,
@@ -302,18 +305,18 @@ export class SmoothScroller {
 
 		this.scroll = this._scrollFrom = this._previousScroll = this._targetScroll;
 		this.scrollHeight = this._content.scrollHeight;
-		this._viewportHeight = window.innerHeight;
-		this._pixelRatio = window.devicePixelRatio;
+		this._viewportHeight = W.innerHeight;
+		this._pixelRatio = W.devicePixelRatio;
 
-		const scrollTop = window.scrollY || window.pageYOffset;
+		const scrollTop = W.scrollY || W.pageYOffset;
 
 		for (let i = 0; i < this._items.length; i++) {
 			this._items[i].resize(scrollTop, this._viewportHeight);
 		}
 
 		if (this._debugCanvas) {
-			const w = window.innerWidth;
-			const h = window.innerHeight;
+			const w = W.innerWidth;
+			const h = W.innerHeight;
 			const dpr = this._pixelRatio;
 
 			this._debugCanvas.width = w * dpr;
@@ -407,7 +410,7 @@ export class SmoothScroller {
 			callback = undefined;
 		}
 
-		const useObserver = !!window.IntersectionObserver;
+		const useObserver = !!W.IntersectionObserver;
 		const root = options.observeIn === undefined ? null : options.observeIn;
 		const dirOff = options.directionOffset || 0;
 		const off = options.offset || 0;
@@ -419,7 +422,7 @@ export class SmoothScroller {
 		let observer: IntersectionObserver | null = null;
 
 		if (useObserver) {
-			observer = new window.IntersectionObserver(
+			observer = new W.IntersectionObserver(
 				(entries) => {
 					for (const entry of entries) {
 						const target = entry.target as HTMLElement;
@@ -447,7 +450,7 @@ export class SmoothScroller {
 			);
 		}
 
-		const scrollTop = window.scrollY || window.pageYOffset;
+		const scrollTop = W.scrollY || W.pageYOffset;
 
 		for (let i = 0; i < items.length; i++) {
 			const element = items[i];
@@ -507,10 +510,10 @@ export class SmoothScroller {
 		this._items = kept;
 	}
 
-	public static getBox(node: HTMLElement): DOMRectLike {
+	public getBox(node: HTMLElement): DOMRectLike {
 		const rect = node.getBoundingClientRect();
-		const scrollTop = window.scrollY || window.pageYOffset;
-		const scrollLeft = window.scrollX || window.pageXOffset;
+		const scrollTop = W.scrollY || W.pageYOffset;
+		const scrollLeft = W.scrollX || W.pageXOffset;
 
 		return {
 			left: rect.left + scrollLeft,
@@ -524,14 +527,11 @@ export class SmoothScroller {
 		const dist = Math.abs(position - this.scroll);
 		const t = time ?? clamp(dist * 0.00025, 0.25, 2.5);
 
-		return this._scrollTween
-			.from({ y: this.scroll })
-			.to({ y: position }, t)
-			.start();
+		return this._scrollTween.from({ y: this.scroll }).to({ y: position }, t).start();
 	}
 
 	public scrollToElement(node: HTMLElement, offset = 0, time: number | null = null) {
-		const box = SmoothScroller.getBox(node);
+		const box = this.getBox(node);
 
 		return this.scrollTo(box.top + offset, time);
 	}
@@ -540,6 +540,7 @@ export class SmoothScroller {
 		for (const item of this._items) {
 			item.observer?.unobserve(item.element);
 		}
+
 		this._items.length = 0;
 		this._activeItems.clear();
 		this._smoothItems.clear();
@@ -557,7 +558,7 @@ export class SmoothScroller {
 
 	public unlock() {
 		this.isLocked = false;
-		window.scrollTo(0, this.scroll);
+		W.scrollTo(0, this.scroll);
 	}
 
 	public setContent(content: HTMLElement) {

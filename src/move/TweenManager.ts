@@ -1,67 +1,81 @@
 import { CubicBezier } from '../math/CubicBezier.js';
 import type { BezierLike, EasingOptions, ITween } from '../types.js';
 
-export class TweenManager {
-	private static _tweens: (ITween | null)[] = [];
-	private static _easingCache = new Map<string, CubicBezier>();
-	private static _isUpdating = false;
+const tweens: (ITween | null)[] = [];
+const easingCache = new Map<string, CubicBezier>();
+const presetRegistry = new Map<string, [number, number, number, number]>();
 
-	public static bezierIterations: number | null = null;
-	public static bezierCacheSize: number | null = null;
-	public static bezierPrecision: number | null = null;
-	public static bezierNewtonRaphsonMinSlope: number | null = null;
-	public static bezierSubdivisionPrecision: number | null = null;
-	public static bezierSubdivisionIterations: number | null = null;
+let isUpdating = false;
 
-	public static getAll(): ITween[] {
+export const TweenManager = {
+	bezierIterations: null as number | null,
+	bezierCacheSize: null as number | null,
+	bezierPrecision: null as number | null,
+	bezierNewtonRaphsonMinSlope: null as number | null,
+	bezierSubdivisionPrecision: null as number | null,
+	bezierSubdivisionIterations: null as number | null,
+
+	getAll: (): ITween[] => {
 		const result: ITween[] = [];
-		const len = this._tweens.length;
+		const len = tweens.length;
 
 		for (let i = 0; i < len; i++) {
-			const t = this._tweens[i];
-
+			const t = tweens[i];
 			if (t !== null) result.push(t);
 		}
 
 		return result;
-	}
+	},
 
-	public static removeAll() {
-		const len = this._tweens.length;
+	removeAll: (): void => {
+		const len = tweens.length;
 
 		for (let i = 0; i < len; i++) {
-			this._tweens[i]?.stop();
+			tweens[i]?.stop();
 		}
 
-		this._tweens.length = 0;
-		this._easingCache.clear();
-	}
+		tweens.length = 0;
+		easingCache.clear();
+	},
 
-	public static add(tween: ITween) {
-		this._tweens.push(tween);
-	}
+	add: (tween: ITween): void => {
+		tweens.push(tween);
+	},
 
-	public static remove(tween: ITween) {
-		const index = this._tweens.indexOf(tween);
+	remove: (tween: ITween): void => {
+		const index = tweens.indexOf(tween);
 
 		if (index !== -1) {
-			if (this._isUpdating) {
-				this._tweens[index] = null;
+			if (isUpdating) {
+				tweens[index] = null;
 			} else {
-				this._tweens.splice(index, 1);
+				tweens.splice(index, 1);
 			}
 		}
-	}
+	},
 
-	public static onTick(time: number): boolean {
-		const tweens = this._tweens;
+	register: (name: string, values: [number, number, number, number]): void => {
+		presetRegistry.set(name, values);
+	},
+
+	registerAll: (presets: Record<string, number[]>): void => {
+		for (const key in presets) {
+			const val = presets[key];
+
+			if (val.length === 4) {
+				presetRegistry.set(key, val as [number, number, number, number]);
+			}
+		}
+	},
+
+	onTick: (time: number): boolean => {
 		const initialLen = tweens.length;
 
 		if (initialLen === 0) {
 			return false;
 		}
 
-		this._isUpdating = true;
+		isUpdating = true;
 
 		let activeCount = 0;
 
@@ -77,7 +91,7 @@ export class TweenManager {
 			}
 		}
 
-		this._isUpdating = false;
+		isUpdating = false;
 
 		const finalLen = tweens.length;
 
@@ -90,20 +104,26 @@ export class TweenManager {
 		tweens.length = activeCount;
 
 		return activeCount > 0;
-	}
+	},
 
-	public static getEasingFromCache(key: string) {
-		if (!this._easingCache.has(key)) {
-			this._easingCache.set(key, new CubicBezier(key));
+	getEasingFromCache: (key: string): CubicBezier => {
+		if (!easingCache.has(key)) {
+			if (presetRegistry.has(key)) {
+				const [x1, y1, x2, y2] = presetRegistry.get(key)!;
+
+				easingCache.set(key, new CubicBezier(x1, y1, x2, y2));
+			} else {
+				easingCache.set(key, new CubicBezier(key));
+			}
 		}
 
-		return this._easingCache.get(key) as CubicBezier;
-	}
+		return easingCache.get(key) as CubicBezier;
+	},
 
-	public static setEasingOptions(
+	setEasingOptions: (
 		bezier: CubicBezier | BezierLike,
 		easingOptions: EasingOptions = {}
-	) {
+	): void => {
 		const defaults = {
 			iterations: TweenManager.bezierIterations,
 			cacheSize: TweenManager.bezierCacheSize,
@@ -120,8 +140,8 @@ export class TweenManager {
 			const value = defaults[key];
 
 			if (value !== null) {
-				bezier[key] = value;
+				(bezier as BezierLike)[key] = value;
 			}
 		}
 	}
-}
+};
