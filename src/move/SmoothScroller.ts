@@ -26,9 +26,10 @@ if (isBrowser) {
 				passiveSupported = true;
 				return true;
 			}
-		}) as unknown as AddEventListenerOptions;
-		W.addEventListener('test', () => {}, options);
-		W.removeEventListener('test', () => {}, options);
+		});
+
+		W.addEventListener('test', () => {}, options as AddEventListenerOptions);
+		W.removeEventListener('test', () => {}, options as AddEventListenerOptions);
 	} catch {
 		// ignore
 	}
@@ -221,7 +222,6 @@ export class SmoothScroller {
 				}
 
 				const data = item.data;
-
 				if (Math.abs(data.smoothScrollValue - this.scroll) > this._scrollThreshold) {
 					item.update(this.scroll, this._viewportHeight, this.isDown, false, ms);
 				}
@@ -427,8 +427,10 @@ export class SmoothScroller {
 			callback = undefined;
 		}
 
+		// Check for IntersectionObserver on our typed W object
 		const ObserverClass = W.IntersectionObserver;
 		const useObserver = isBrowser && !!ObserverClass;
+
 		const root = options.observeIn === undefined ? null : options.observeIn;
 		const dirOff = options.directionOffset || 0;
 		const off = options.offset || 0;
@@ -441,23 +443,24 @@ export class SmoothScroller {
 
 		if (useObserver && ObserverClass) {
 			observer = new ObserverClass(
-				(entries) => {
+				(entries: IntersectionObserverEntry[]) => {
 					for (const entry of entries) {
 						const target = entry.target as HTMLElement;
-						const item = this._items.find((i) => i.element === target);
 
-						if (item) {
-							const isVisible = entry.isIntersecting;
+						for (const item of this._items) {
+							if (item.element === target) {
+								const isVisible = entry.isIntersecting;
 
-							item.setVisible(isVisible);
+								item.setVisible(isVisible);
 
-							if (isVisible && !item.smoothing) {
-								this._activeItems.add(item);
-							} else if (!isVisible && !item.smoothing) {
-								this._activeItems.delete(item);
+								if (isVisible && !item.smoothing) {
+									this._activeItems.add(item);
+								} else if (!isVisible && !item.smoothing) {
+									this._activeItems.delete(item);
+								}
+
+								item.update(this.scroll, this._viewportHeight, this.isDown);
 							}
-
-							item.update(this.scroll, this._viewportHeight, this.isDown);
 						}
 					}
 				},
