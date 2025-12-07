@@ -26,8 +26,10 @@
 		<div class="block"></div>
 		<div class="block"></div>
 		<div class="block"></div>
-		<div class="block"></div>
-		<div class="block"></div>
+		<div class="block" data-smoothing="0.99"></div>
+		<div class="block" data-smoothing="0.975"></div>
+		<div class="block" data-smoothing="0.95"></div>
+		<div class="block" data-smoothing="0.9"></div>
 		<div class="block"></div>
 		<div class="block"></div>
 		<div class="block"></div>
@@ -38,15 +40,19 @@
 				debug: true
 			});
 
-			smoothScroller.add([...document.getElementsByClassName('block')], ({item, factor, boxFactor, boxIsInView}) => {
-				const x = Math.sin(factor * Math.PI) * 100;
-				const y = (1 - boxFactor) * 100;
-				const opacity = 1 - ((factor - 0.5) * 2) ** 4;
+			[...document.getElementsByClassName('block')].forEach(block => {
+				smoothScroller.add(block, ({item, factor, boxFactor, boxIsInView}) => {
+					const x = Math.sin(factor * Math.PI) * 100;
+					const y = (1 - boxFactor) * 100;
+					const opacity = 1 - ((factor - 0.5) * 2) ** 4;
 
-				item.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-				item.style.opacity = opacity;
-				item.classList.toggle('is-in-view', boxIsInView);
-			});
+					item.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+					item.style.opacity = opacity;
+					item.classList.toggle('is-in-view', boxIsInView);
+				}, {
+					smoothing: block.dataset.smoothing ? Number(block.dataset.smoothing) : undefined
+				});
+			})
 
 			document.getElementsByClassName('scroll')[0].onclick = () => {
 				smoothScroller.scrollTo(window.document.body.scrollHeight - window.innerHeight, 5);

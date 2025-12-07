@@ -50,7 +50,7 @@ export class SmoothScroller {
 	private _viewportHeight = 0;
 	private _items: ScrollItem[] = [];
 	private _activeItems = new Set<ScrollItem>();
-	private _smoothItems = new Set<ScrollItem>();
+	private _activeSmoothItems = new Set<ScrollItem>();
 	private _debugCanvas: HTMLCanvasElement | null = null;
 	private _debugContext: CanvasRenderingContext2D | null = null;
 	private _isAnimating = false;
@@ -214,11 +214,14 @@ export class SmoothScroller {
 			return true;
 		}
 
-		if (this._smoothItems.size > 0) {
-			for (const item of this._smoothItems) {
-				if (this._activeItems.has(item) && this._isAnimating) continue;
+		if (this._activeSmoothItems.size > 0) {
+			for (const item of this._activeSmoothItems) {
+				if (this._activeItems.has(item) && this._isAnimating) {
+					continue;
+				}
 
-				const data = item.getData();
+				const data = item.data;
+
 				if (Math.abs(data.smoothScrollValue - this.scroll) > this._scrollThreshold) {
 					item.update(this.scroll, this._viewportHeight, this.isDown, false, ms);
 				}
@@ -388,14 +391,15 @@ export class SmoothScroller {
 		const pr = this._pixelRatio;
 		const h = this._viewportHeight;
 
-		for (const item of this._activeItems) {
-			const data = item.getData();
+		for (const item of [...this._activeItems, ...this._activeSmoothItems]) {
+			const data = item.data;
 			const y = data.box.top - data.scroll;
 
 			if (y + data.box.height >= 0 && y <= h) {
 				ctx.rect(data.box.left * pr, y * pr, data.box.width * pr, data.box.height * pr);
 			}
 		}
+
 		ctx.stroke();
 	}
 
@@ -444,6 +448,7 @@ export class SmoothScroller {
 
 						if (item) {
 							const isVisible = entry.isIntersecting;
+
 							item.setVisible(isVisible);
 
 							if (isVisible && !item.smoothing) {
@@ -482,7 +487,7 @@ export class SmoothScroller {
 			}
 
 			if (item.smoothing) {
-				this._smoothItems.add(item);
+				this._activeSmoothItems.add(item);
 			}
 
 			this._items.push(item);
@@ -491,11 +496,11 @@ export class SmoothScroller {
 
 	private _refreshActiveSets() {
 		this._activeItems.clear();
-		this._smoothItems.clear();
+		this._activeSmoothItems.clear();
 
 		for (const item of this._items) {
 			if (item.smoothing) {
-				this._smoothItems.add(item);
+				this._activeSmoothItems.add(item);
 			}
 
 			if (item.isVisible && !item.smoothing) {
@@ -515,7 +520,7 @@ export class SmoothScroller {
 				item.observer?.unobserve(item.element);
 
 				this._activeItems.delete(item);
-				this._smoothItems.delete(item);
+				this._activeSmoothItems.delete(item);
 			} else {
 				kept.push(item);
 			}
@@ -557,7 +562,7 @@ export class SmoothScroller {
 
 		this._items.length = 0;
 		this._activeItems.clear();
-		this._smoothItems.clear();
+		this._activeSmoothItems.clear();
 		this._viewportHeight = 0;
 	}
 

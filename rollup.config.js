@@ -15,7 +15,7 @@ const plugins = [
 		module: true,
 		toplevel: true,
 		compress: {
-			drop_console: true,
+			// drop_console: true,
 			drop_debugger: true,
 			passes: 3,
 			pure_getters: true,

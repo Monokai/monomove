@@ -244,7 +244,7 @@ declare class SmoothScroller {
     private _viewportHeight;
     private _items;
     private _activeItems;
-    private _smoothItems;
+    private _activeSmoothItems;
     private _debugCanvas;
     private _debugContext;
     private _isAnimating;

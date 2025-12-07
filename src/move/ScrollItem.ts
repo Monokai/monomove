@@ -14,8 +14,9 @@ export class ScrollItem {
 	public readonly smoothing: number;
 	public readonly observer: IntersectionObserver | null;
 
+	public data: SmoothScrollCallbackData;
+
 	private _box: DOMRectLike;
-	private _data: SmoothScrollCallbackData;
 
 	private _hasEnteredOnce = false;
 	private _hasExitedOnce = false;
@@ -32,7 +33,7 @@ export class ScrollItem {
 	private _onScrolledInOnce: ((data: SmoothScrollCallbackData) => void) | undefined;
 	private _onScrolledOutOnce: ((data: SmoothScrollCallbackData) => void) | undefined;
 
-	private _smoothScrollFn: ((x: number, delta: number, smooth: number) => number) | undefined;
+	private _smoothScrollFunk: ((x: number, delta: number, smooth: number) => number) | undefined;
 
 	constructor(
 		element: HTMLElement,
@@ -62,7 +63,7 @@ export class ScrollItem {
 
 		this._box = { left: 0, top: 0, width: 0, height: 0 };
 
-		this._data = {
+		this.data = {
 			item: element,
 			factor: 0,
 			rawFactor: 0,
@@ -81,15 +82,11 @@ export class ScrollItem {
 	}
 
 	public setVisible(visible: boolean) {
-		this._data.isVisible = visible;
+		this.data.isVisible = visible;
 	}
 
 	public get isVisible(): boolean {
-		return this._data.isVisible;
-	}
-
-	public getData(): SmoothScrollCallbackData {
-		return this._data;
+		return this.data.isVisible;
 	}
 
 	public resize(scrollTop: number) {
@@ -105,7 +102,7 @@ export class ScrollItem {
 		this._box.width = rect.width;
 		this._box.height = rect.height;
 
-		this._data.originalTop = this._box.top;
+		this.data.originalTop = this._box.top;
 	}
 
 	public update(
@@ -118,18 +115,18 @@ export class ScrollItem {
 		const box = this._box;
 		if (box.height === 0) return;
 
-		this._data.scroll = currentScroll;
+		this.data.scroll = currentScroll;
 
-		if (this.smoothing && this._smoothScrollFn) {
-			const deltaSeconds = (ms * 60) / 1000;
+		if (this.smoothing && this._smoothScrollFunk) {
+			// const deltaSeconds = (ms * 60) / 1000;
 
-			this._data.smoothScrollValue = this._smoothScrollFn(
+			this.data.smoothScrollValue = this._smoothScrollFunk(
 				currentScroll,
-				deltaSeconds,
+				ms,
 				this.smoothing
 			);
 		} else {
-			this._data.smoothScrollValue = currentScroll;
+			this.data.smoothScrollValue = currentScroll;
 		}
 
 		const directionOffset = this._directionOffset * (isScrollingDown ? -1 : 1);
@@ -137,7 +134,7 @@ export class ScrollItem {
 		const pos =
 			box.top +
 			box.height -
-			this._data.smoothScrollValue +
+			this.data.smoothScrollValue +
 			directionOffset * viewportHeight +
 			this._offset * viewportHeight;
 
@@ -146,50 +143,50 @@ export class ScrollItem {
 		const rawBoxFactor = (pos - viewportHeight) / box.height;
 		const speed = this._speed;
 
-		this._data.rawFactor = (1 - rawFactor - 0.5) * speed + 0.5;
-		this._data.rawBoxFactor = (1 - rawBoxFactor - 0.5) * speed + 0.5;
+		this.data.rawFactor = (1 - rawFactor - 0.5) * speed + 0.5;
+		this.data.rawBoxFactor = (1 - rawBoxFactor - 0.5) * speed + 0.5;
 
-		this._data.factor =
-			this._data.rawFactor < 0 ? 0 : this._data.rawFactor > 1 ? 1 : this._data.rawFactor;
+		this.data.factor =
+			this.data.rawFactor < 0 ? 0 : this.data.rawFactor > 1 ? 1 : this.data.rawFactor;
 
-		this._data.boxFactor =
-			this._data.rawBoxFactor < 0
+		this.data.boxFactor =
+			this.data.rawBoxFactor < 0
 				? 0
-				: this._data.rawBoxFactor > 1
+				: this.data.rawBoxFactor > 1
 					? 1
-					: this._data.rawBoxFactor;
+					: this.data.rawBoxFactor;
 
-		this._data.isInView = this._data.rawFactor >= 0 && this._data.rawFactor <= 1;
-		this._data.boxIsInView = this._data.rawBoxFactor >= 0 && this._data.rawBoxFactor <= 1;
+		this.data.isInView = this.data.rawFactor >= 0 && this.data.rawFactor <= 1;
+		this.data.boxIsInView = this.data.rawBoxFactor >= 0 && this.data.rawBoxFactor <= 1;
 
-		if (this._data.isInView !== this._previousIsInView) {
-			if (this._data.isInView) {
+		if (this.data.isInView !== this._previousIsInView) {
+			if (this.data.isInView) {
 				if (this.smoothing) {
-					this._smoothScrollFn = smoothValue(currentScroll);
+					this._smoothScrollFunk = smoothValue(currentScroll);
 				}
 
-				this._onScrolledIn?.(this._data);
+				this._onScrolledIn?.(this.data);
 
 				if (!this._hasEnteredOnce) {
 					this._hasEnteredOnce = true;
-					this._onScrolledInOnce?.(this._data);
+					this._onScrolledInOnce?.(this.data);
 				}
 			} else {
-				this._onScrolledOut?.(this._data);
-				this._smoothScrollFn = undefined;
+				this._onScrolledOut?.(this.data);
+				this._smoothScrollFunk = undefined;
 
 				if (!this._hasExitedOnce) {
 					this._hasExitedOnce = true;
-					this._onScrolledOutOnce?.(this._data);
+					this._onScrolledOutOnce?.(this.data);
 				}
 			}
 
-			this._previousIsInView = this._data.isInView;
+			this._previousIsInView = this.data.isInView;
 		}
 
-		if (this._onUpdate && (this._previousFactor !== this._data.factor || forceUpdate)) {
-			this._onUpdate(this._data);
-			this._previousFactor = this._data.factor;
+		if (this._onUpdate && (this._previousFactor !== this.data.factor || forceUpdate)) {
+			this._onUpdate(this.data);
+			this._previousFactor = this.data.factor;
 		}
 	}
 }
