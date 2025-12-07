@@ -32,12 +32,12 @@ export interface EasingOptions {
 }
 
 export interface ITween {
-	start(time?: number): Promise<any>;
-	stop(): any;
+	start(time?: number): Promise<this>;
+	stop(): this;
 	update(time: number): boolean;
 	invalidate(): void;
 
-	delay(amount: number): any;
+	delay(amount: number): this;
 	setProgress(progress: number, force?: boolean): void;
 	updateAllValues(delta?: number): void;
 

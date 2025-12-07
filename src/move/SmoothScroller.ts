@@ -10,11 +10,16 @@ import type {
 	EasingFunction
 } from '../types.js';
 
-const W = window;
+interface WindowWithObserver extends Window {
+	IntersectionObserver?: typeof IntersectionObserver;
+}
+
+const isBrowser = typeof window !== 'undefined';
+const W = isBrowser ? (window as WindowWithObserver) : ({} as WindowWithObserver);
 
 let passiveSupported = false;
 
-if (typeof W !== 'undefined') {
+if (isBrowser) {
 	try {
 		const options = Object.defineProperty({}, 'passive', {
 			get: () => {
@@ -57,7 +62,9 @@ export class SmoothScroller {
 	private _scrollTween = new Tween<{ y: number }>({ y: 0 })
 		.easing('0.35,0.15,0,1')
 		.onUpdate((o: { y: number }) => {
-			W.scrollTo(0, o.y);
+			if (isBrowser) {
+				W.scrollTo(0, o.y);
+			}
 
 			this._isAnimating = true;
 			this.scroll = o.y;
@@ -120,11 +127,11 @@ export class SmoothScroller {
 	};
 
 	constructor({
-		container = W.document.body,
-		content = W.document.body,
+		container = isBrowser ? document.body : (null as unknown as HTMLElement),
+		content = isBrowser ? document.body : (null as unknown as HTMLElement),
 		easing = (x) => Math.min(1, 1.001 - 2 ** (-10 * x)),
 		scrollDuration = 0,
-		listener = window,
+		listener = isBrowser ? window : (null as unknown as Window),
 		debug = false,
 		onResize
 	}: SmoothScrollOptions = {}) {
@@ -136,7 +143,9 @@ export class SmoothScroller {
 		this._easing = easing;
 		this._onResizeFunk = onResize || null;
 
-		if ('scrollY' in this._listener) {
+		if (!this._listener) {
+			this._getScrollPosition = () => 0;
+		} else if ('scrollY' in this._listener) {
 			this._getScrollPosition = () => (this._listener as Window).scrollY;
 		} else if ('pageYOffset' in this._listener) {
 			this._getScrollPosition = () => (this._listener as Window).pageYOffset;
@@ -170,7 +179,7 @@ export class SmoothScroller {
 	}
 
 	private _setupDebug() {
-		if (this._debug && this._container) {
+		if (this._debug && this._container && isBrowser) {
 			this._debugCanvas = document.createElement('canvas');
 			this._container.appendChild(this._debugCanvas);
 		}
@@ -178,6 +187,10 @@ export class SmoothScroller {
 
 	private _onTick(ms: number) {
 		if (this.isLocked) {
+			return true;
+		}
+
+		if (!this._content) {
 			return true;
 		}
 
@@ -299,7 +312,7 @@ export class SmoothScroller {
 	}
 
 	public resize() {
-		if (!this._container || !this._content) {
+		if (!this._container || !this._content || !isBrowser) {
 			return;
 		}
 
@@ -311,7 +324,7 @@ export class SmoothScroller {
 		const scrollTop = W.scrollY || W.pageYOffset;
 
 		for (let i = 0; i < this._items.length; i++) {
-			this._items[i].resize(scrollTop, this._viewportHeight);
+			this._items[i].resize(scrollTop);
 		}
 
 		if (this._debugCanvas) {
@@ -410,7 +423,8 @@ export class SmoothScroller {
 			callback = undefined;
 		}
 
-		const useObserver = !!W.IntersectionObserver;
+		const ObserverClass = W.IntersectionObserver;
+		const useObserver = isBrowser && !!ObserverClass;
 		const root = options.observeIn === undefined ? null : options.observeIn;
 		const dirOff = options.directionOffset || 0;
 		const off = options.offset || 0;
@@ -421,8 +435,8 @@ export class SmoothScroller {
 
 		let observer: IntersectionObserver | null = null;
 
-		if (useObserver) {
-			observer = new W.IntersectionObserver(
+		if (useObserver && ObserverClass) {
+			observer = new ObserverClass(
 				(entries) => {
 					for (const entry of entries) {
 						const target = entry.target as HTMLElement;
@@ -450,13 +464,13 @@ export class SmoothScroller {
 			);
 		}
 
-		const scrollTop = W.scrollY || W.pageYOffset;
+		const scrollTop = isBrowser ? W.scrollY || W.pageYOffset : 0;
 
 		for (let i = 0; i < items.length; i++) {
 			const element = items[i];
 			const item = new ScrollItem(element, i, options, callback, observer);
 
-			item.resize(scrollTop, this._viewportHeight);
+			item.resize(scrollTop);
 
 			if (observer) {
 				observer.observe(element);
@@ -512,8 +526,8 @@ export class SmoothScroller {
 
 	public getBox(node: HTMLElement): DOMRectLike {
 		const rect = node.getBoundingClientRect();
-		const scrollTop = W.scrollY || W.pageYOffset;
-		const scrollLeft = W.scrollX || W.pageXOffset;
+		const scrollTop = isBrowser ? W.scrollY || W.pageYOffset : 0;
+		const scrollLeft = isBrowser ? W.scrollX || W.pageXOffset : 0;
 
 		return {
 			left: rect.left + scrollLeft,
@@ -558,7 +572,7 @@ export class SmoothScroller {
 
 	public unlock() {
 		this.isLocked = false;
-		W.scrollTo(0, this.scroll);
+		if (isBrowser) W.scrollTo(0, this.scroll);
 	}
 
 	public setContent(content: HTMLElement) {

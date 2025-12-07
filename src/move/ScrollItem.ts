@@ -6,7 +6,8 @@ import type {
 	SmoothScrollCallbackData
 } from '../types.js';
 
-const W = window;
+const isBrowser = typeof window !== 'undefined';
+const W = isBrowser ? window : ({} as Window);
 
 export class ScrollItem {
 	public readonly element: HTMLElement;
@@ -91,9 +92,13 @@ export class ScrollItem {
 		return this._data;
 	}
 
-	public resize(scrollTop: number, viewportHeight: number) {
+	public resize(scrollTop: number) {
+		if (!this.element) {
+			return;
+		}
+
 		const rect = this.element.getBoundingClientRect();
-		const scrollLeft = W.scrollX || W.pageXOffset;
+		const scrollLeft = isBrowser ? W.scrollX || W.pageXOffset : 0;
 
 		this._box.left = rect.left + scrollLeft;
 		this._box.top = rect.top + scrollTop;

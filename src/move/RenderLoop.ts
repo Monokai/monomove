@@ -2,8 +2,8 @@ import { TweenManager } from './TweenManager.js';
 
 type RenderCallback = (ms: number) => boolean | void;
 
-const W = window;
-const isBrowser = typeof W !== 'undefined';
+const isBrowser = typeof window !== 'undefined';
+const W = isBrowser ? window : ({} as Window);
 const subscribers: (RenderCallback | null)[] = [];
 
 let isUpdating = false;
