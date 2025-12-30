@@ -120,11 +120,7 @@ export class ScrollItem {
 		if (this.smoothing && this._smoothScrollFunk) {
 			// const deltaSeconds = (ms * 60) / 1000;
 
-			this.data.smoothScrollValue = this._smoothScrollFunk(
-				currentScroll,
-				ms,
-				this.smoothing
-			);
+			this.data.smoothScrollValue = this._smoothScrollFunk(currentScroll, ms, this.smoothing);
 		} else {
 			this.data.smoothScrollValue = currentScroll;
 		}

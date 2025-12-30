@@ -248,10 +248,9 @@ declare class SmoothScroller {
     private _debugCanvas;
     private _debugContext;
     private _isAnimating;
-    private _previousScrollWidth;
-    private _previousScrollHeight;
     private _isFirstScrollInstant;
     private _isTouch;
+    private _resizeObserver?;
     private _scrollTween;
     private _touchScrollDuration;
     private _scrollDuration;
@@ -268,6 +267,7 @@ declare class SmoothScroller {
     private _onTouchStart;
     private _onMouseDown;
     private _onWheel;
+    private _observeContent;
     private _onScroll;
     constructor({ container, content, easing, scrollDuration, listener, debug, onResize }?: SmoothScrollOptions);
     private _setupListeners;

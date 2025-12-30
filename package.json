@@ -1,6 +1,6 @@
 {
   "name": "@monokai/monomove",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "author": "Monokai",
   "license": "MIT",
   "description": "utilities for moving things on screen",
@@ -33,6 +33,7 @@
     "build": "rollup -c",
     "build:production": "rollup -c --environment BUILD:production",
     "watch": "rollup -c --watch",
+    "check": "npx tsc --noEmit && npx eslint src",
     "test": "vitest run",
     "test:watch": "vitest"
   },

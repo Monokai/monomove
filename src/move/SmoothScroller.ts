@@ -55,10 +55,9 @@ export class SmoothScroller {
 	private _debugCanvas: HTMLCanvasElement | null = null;
 	private _debugContext: CanvasRenderingContext2D | null = null;
 	private _isAnimating = false;
-	private _previousScrollWidth = 0;
-	private _previousScrollHeight = 0;
 	private _isFirstScrollInstant = true;
 	private _isTouch = false;
+	private _resizeObserver?: ResizeObserver;
 
 	private _scrollTween = new Tween<{ y: number }>({ y: 0 })
 		.easing('0.35,0.15,0,1')
@@ -112,6 +111,20 @@ export class SmoothScroller {
 		this._isTouch = false;
 	};
 
+	private _observeContent() {
+		if (!isBrowser || !this._content) {
+			return;
+		}
+
+		this._resizeObserver?.disconnect();
+
+		this._resizeObserver = new ResizeObserver(() => {
+			this.resize();
+		});
+
+		this._resizeObserver.observe(this._content);
+	}
+
 	private _onScroll = () => {
 		if (this.isLocked) {
 			return;
@@ -163,6 +176,7 @@ export class SmoothScroller {
 		RenderLoop.play();
 
 		this.resize();
+		this._observeContent();
 	}
 
 	private _setupListeners() {
@@ -192,26 +206,6 @@ export class SmoothScroller {
 		}
 
 		if (!this._content) {
-			return true;
-		}
-
-		const sw = this._content.scrollWidth;
-		const sh = this._content.scrollHeight;
-
-		if (sw !== this.scrollWidth || sh !== this.scrollHeight) {
-			this.scrollWidth = sw;
-			this.scrollHeight = sh;
-
-			if (sw !== this._previousScrollWidth || sh !== this._previousScrollHeight) {
-				this.resize();
-			}
-
-			this._previousScrollWidth = sw;
-			this._previousScrollHeight = sh;
-
-			this.scroll = this._scrollFrom = this._targetScroll;
-			this._updateAll(this.scroll, ms);
-
 			return true;
 		}
 
@@ -319,7 +313,6 @@ export class SmoothScroller {
 			return;
 		}
 
-		this.scroll = this._scrollFrom = this._previousScroll = this._targetScroll;
 		this.scrollHeight = this._content.scrollHeight;
 		this._viewportHeight = W.innerHeight;
 		this._pixelRatio = W.devicePixelRatio;
@@ -356,6 +349,14 @@ export class SmoothScroller {
 		}
 
 		this._refreshActiveSets();
+
+		const maxScroll = Math.max(0, this.scrollHeight - this._viewportHeight);
+
+		this.scroll =
+			this._targetScroll =
+			this._scrollFrom =
+			this._previousScroll =
+				clamp(this.scroll, 0, maxScroll);
 	}
 
 	public triggerAnimations(all = false) {
@@ -585,10 +586,12 @@ export class SmoothScroller {
 
 	public setContent(content: HTMLElement) {
 		this._content = content;
+		this._observeContent();
 		this.resize();
 	}
 
 	public unsetContent() {
+		this._resizeObserver?.disconnect();
 		this._content = null as unknown as HTMLElement;
 	}
 
@@ -612,6 +615,8 @@ export class SmoothScroller {
 			l.removeEventListener('mousedown', this._onMouseDown, opts);
 			l.removeEventListener('scroll', this._onScroll, opts);
 		}
+
+		this._resizeObserver?.disconnect();
 
 		this.reset();
 		this.stop();
