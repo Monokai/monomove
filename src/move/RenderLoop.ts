@@ -57,7 +57,6 @@ const animate = () => {
 		ms = 0;
 	}
 
-	// We access TweenManager directly as an object now
 	const hasTweens = TweenManager.onTick(time);
 	const len = subscribers.length;
 

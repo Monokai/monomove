@@ -57,6 +57,8 @@ export class SmoothScroller {
 	private _isAnimating = false;
 	private _isFirstScrollInstant = true;
 	private _isTouch = false;
+	private _previousScrollWidth = 0;
+	private _previousScrollHeight = 0;
 	private _resizeObserver?: ResizeObserver;
 
 	private _scrollTween = new Tween<{ y: number }>({ y: 0 })
@@ -120,6 +122,7 @@ export class SmoothScroller {
 
 		this._resizeObserver = new ResizeObserver(() => {
 			this.resize();
+			this._updateAll(this.scroll);
 		});
 
 		this._resizeObserver.observe(this._content);
@@ -202,12 +205,32 @@ export class SmoothScroller {
 
 	private _onTick(ms: number) {
 		if (this.isLocked) {
-			return true;
+			return;
 		}
 
 		if (!this._content) {
-			return true;
+			return;
 		}
+
+		// const sw = this._content.scrollWidth;
+		// const sh = this._content.scrollHeight;
+
+		// if (sw !== this.scrollWidth || sh !== this.scrollHeight) {
+		// 	this.scrollWidth = sw;
+		// 	this.scrollHeight = sh;
+
+		// 	if (sw !== this._previousScrollWidth || sh !== this._previousScrollHeight) {
+		// 		this.resize();
+		// 	}
+
+		// 	this._previousScrollWidth = sw;
+		// 	this._previousScrollHeight = sh;
+
+		// 	this.scroll = this._scrollFrom = this._targetScroll;
+		// 	this._updateAll(this.scroll, ms);
+
+		// 	return;
+		// }
 
 		if (this._activeSmoothItems.size > 0) {
 			for (const item of this._activeSmoothItems) {
@@ -235,7 +258,7 @@ export class SmoothScroller {
 		}
 
 		if (!this._isAnimating) {
-			return true;
+			return;
 		}
 
 		const diff = this._targetScroll - this.scroll;
@@ -252,7 +275,7 @@ export class SmoothScroller {
 
 			this._isAnimating = false;
 
-			return true;
+			return;
 		}
 
 		this._totalTickTime += ms / 1000;
@@ -276,7 +299,7 @@ export class SmoothScroller {
 
 		this._updateAll(this.scroll, ms);
 
-		return true;
+		return;
 	}
 
 	private _updateAll(scroll: number, ms: number = 16.6) {
@@ -314,6 +337,11 @@ export class SmoothScroller {
 		}
 
 		this.scrollHeight = this._content.scrollHeight;
+		this.scroll =
+			this._scrollFrom =
+			this._previousScroll =
+				clamp(this._targetScroll, 0, this.scrollHeight - this._viewportHeight);
+
 		this._viewportHeight = W.innerHeight;
 		this._pixelRatio = W.devicePixelRatio;
 
@@ -349,14 +377,6 @@ export class SmoothScroller {
 		}
 
 		this._refreshActiveSets();
-
-		const maxScroll = Math.max(0, this.scrollHeight - this._viewportHeight);
-
-		this.scroll =
-			this._targetScroll =
-			this._scrollFrom =
-			this._previousScroll =
-				clamp(this.scroll, 0, maxScroll);
 	}
 
 	public triggerAnimations(all = false) {

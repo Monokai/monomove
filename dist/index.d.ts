@@ -250,6 +250,8 @@ declare class SmoothScroller {
     private _isAnimating;
     private _isFirstScrollInstant;
     private _isTouch;
+    private _previousScrollWidth;
+    private _previousScrollHeight;
     private _resizeObserver?;
     private _scrollTween;
     private _touchScrollDuration;
